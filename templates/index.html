@@ -481,6 +481,7 @@
             <nav class="side-panel">
                 <button class="side-item active" data-view="lister" onclick="switchView('lister')">AI Model Lister</button>
                 <button class="side-item" data-view="comparer" onclick="switchView('comparer')">AI Model Comparer</button>
+                <button class="side-item" data-view="settings" onclick="switchView('settings')">⚙️ Settings</button>
             </nav>
             <div class="main-content">
                 <section id="view-lister" class="view active">
@@ -597,6 +598,41 @@
                             <input type="text" id="compare-search" placeholder="Search comparison models..." oninput="filterCompareModels()">
                         </div>
                         <div id="compare-result"></div>
+                    </div>
+                </section>
+
+                <section id="view-settings" class="view">
+                    <div class="provider-card" style="max-width:650px;">
+                        <h3>Server Environment (.env)</h3>
+                        <p style="margin-top:4px;margin-bottom:18px;">Configure global environment defaults saved directly into the server's <code>.env</code> file.</p>
+
+                        <div class="form-group">
+                            <label for="env-default-base-url">DEFAULT_BASE_URL <span style="font-weight:400;color:var(--dim)">(leave empty for OpenAI official: <code>https://api.openai.com/v1</code>)</span></label>
+                            <input type="text" id="env-default-base-url" placeholder="https://api.openai.com/v1">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="env-default-provider">DEFAULT_PROVIDER <span style="font-weight:400;color:var(--dim)">(provider selected on first load)</span></label>
+                            <select id="env-default-provider">
+                                <option value="openai">OpenAI Compatible (OpenAI, Groq, Together...)</option>
+                                <option value="openrouter">OpenRouter</option>
+                                <option value="azure">Azure OpenAI</option>
+                                <option value="ollama">Ollama (local)</option>
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="mistral">Mistral</option>
+                                <option value="groq">Groq</option>
+                                <option value="together">Together</option>
+                                <option value="xai">xAI Grok</option>
+                                <option value="gemini">Google Gemini</option>
+                                <option value="claude">Anthropic Claude</option>
+                                <option value="nvidia">NVIDIA NIM</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
+                            <button class="btn-green" id="env-save-btn" onclick="saveEnvSettings()">💾 Save to .env</button>
+                            <span id="env-save-status" style="font-size:13px;color:var(--dim);"></span>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -2280,6 +2316,56 @@
             switchView(view);
         }
 
+        /* ---------- server environment (.env) settings ---------- */
+
+        async function loadEnvSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                if (!res.ok) return;
+                const data = await res.json();
+                const baseUrlEl = document.getElementById('env-default-base-url');
+                const provEl = document.getElementById('env-default-provider');
+                if (baseUrlEl) baseUrlEl.value = data.default_base_url || '';
+                if (provEl && data.default_provider) provEl.value = data.default_provider;
+            } catch (e) { /* ignore network error */ }
+        }
+
+        async function saveEnvSettings() {
+            const btn = document.getElementById('env-save-btn');
+            const status = document.getElementById('env-save-status');
+            const default_base_url = document.getElementById('env-default-base-url').value.trim();
+            const default_provider = document.getElementById('env-default-provider').value;
+
+            btn.disabled = true;
+            status.textContent = 'Saving…';
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ default_base_url, default_provider })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to save');
+
+                toast('Settings saved to .env!', 'success');
+                status.textContent = 'Saved!';
+                setTimeout(() => { status.textContent = ''; }, 3000);
+
+                // Update in-memory defaults dynamically
+                PROVIDER_DEFAULTS.openai = data.default_base_url || 'https://api.openai.com/v1';
+                if (document.getElementById('provider').value === 'openai') {
+                    document.getElementById('base_url').value = PROVIDER_DEFAULTS.openai;
+                }
+                updatePlaceholders();
+                saveSettings();
+            } catch (e) {
+                toast(`Error saving settings: ${e.message}`, 'error');
+                status.textContent = 'Failed to save.';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         /* ---------- keyboard shortcuts ---------- */
 
         document.addEventListener('keydown', function (e) {
@@ -2307,6 +2393,7 @@
         loadTheme();
         loadSettings();
         updatePlaceholders();
+        loadEnvSettings();
         document.getElementById('provider').addEventListener('change', updateProviderUI);
         document.getElementById('api_key').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') listModels();

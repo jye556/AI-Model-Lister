@@ -1,4 +1,5 @@
 import os
+import shutil
 import unittest
 from unittest import mock
 
@@ -564,6 +565,48 @@ class UpdateTests(unittest.TestCase):
                 self.assertEqual(f.read().strip(), "# new code")
             self.assertFalse(os.path.exists(os.path.join(temp_dir, '.env')))
         finally:
+            shutil.rmtree(temp_dir)
+
+
+class SettingsApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_get_settings(self):
+        resp = self.client.get('/api/settings')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn('default_base_url', data)
+        self.assertIn('default_provider', data)
+
+    def test_save_settings_writes_env(self):
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        fake_env = os.path.join(temp_dir, '.env')
+        orig_base = app_module.DEFAULT_BASE_URL
+        orig_prov = app_module.DEFAULT_PROVIDER
+        try:
+            with open(fake_env, 'w', encoding='utf-8') as f:
+                f.write("DEFAULT_BASE_URL=old\nDEFAULT_PROVIDER=openai\n")
+            with mock.patch.object(app_module, 'APP_DIR', temp_dir):
+                resp = self.client.post('/api/settings', json={
+                    'default_base_url': 'https://custom.api/v1',
+                    'default_provider': 'claude'
+                })
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(data['status'], 'ok')
+            self.assertEqual(data['default_base_url'], 'https://custom.api/v1')
+            self.assertEqual(data['default_provider'], 'claude')
+
+            with open(fake_env, 'r', encoding='utf-8') as f:
+                content = f.read()
+            self.assertIn('DEFAULT_BASE_URL=https://custom.api/v1', content)
+            self.assertIn('DEFAULT_PROVIDER=claude', content)
+        finally:
+            app_module.DEFAULT_BASE_URL = orig_base
+            app_module.DEFAULT_PROVIDER = orig_prov
+            app_module.PROVIDER_BASE_URLS['openai'] = orig_base
             shutil.rmtree(temp_dir)
 
 

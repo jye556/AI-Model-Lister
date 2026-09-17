@@ -33,6 +33,7 @@ List models per provider, run batch tests with live token streaming, measure lat
 - Light/dark theme toggle, toast notifications, `Ctrl+Enter` to run a test
 - Checked-model selection remembered per provider in `localStorage`
 - Prompt presets and settings remembered in `localStorage`
+- **Settings tab** — edit and save `DEFAULT_BASE_URL` and `DEFAULT_PROVIDER` directly to `.env` from the web UI
 - Extra custom headers (e.g. OpenRouter's `HTTP-Referer`) and a configurable request timeout
 
 ### Operations
@@ -136,6 +137,7 @@ Notes:
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/` | The web UI |
+| `GET` / `POST` | `/api/settings` | Get or update `.env` configuration |
 | `POST` | `/list-models` | List models for a provider |
 | `POST` | `/test-model` | Run one model test (returns response + TTFT + usage as JSON) |
 | `POST` | `/test-model-stream` | Live-stream a model test as SSE (`ttft` / `delta` / `usage` / `retry` / `done`) |

@@ -26,7 +26,7 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.4'
+    return '3.4.1'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
@@ -803,6 +803,86 @@ def update_app():
     threading.Thread(target=lambda: (time.sleep(1.0), _do_restart()), daemon=True).start()
     return jsonify({'updated': True,
                     'message': f'Updated to v{new_ver}. Reloading...'})
+
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def manage_settings():
+    """Get or update .env configuration for DEFAULT_BASE_URL and DEFAULT_PROVIDER."""
+    env_file = os.path.join(APP_DIR, '.env')
+
+    if request.method == 'GET':
+        env_vars = {}
+        if os.path.isfile(env_file):
+            try:
+                with open(env_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#') or '=' not in line:
+                            continue
+                        k, v = line.split('=', 1)
+                        env_vars[k.strip()] = v.strip().strip("'\"")
+            except Exception:
+                pass
+        return jsonify({
+            'default_base_url': env_vars.get('DEFAULT_BASE_URL', os.environ.get('DEFAULT_BASE_URL', '')),
+            'default_provider': env_vars.get('DEFAULT_PROVIDER', os.environ.get('DEFAULT_PROVIDER', 'openai')),
+        })
+
+    # POST
+    data = request.get_json(silent=True) or {}
+    new_base_url = data.get('default_base_url', '').strip()
+    new_provider = data.get('default_provider', 'openai').strip()
+
+    if new_provider not in PROVIDER_BASE_URLS:
+        new_provider = 'openai'
+
+    lines = []
+    found_base_url = False
+    found_provider = False
+
+    if os.path.isfile(env_file):
+        try:
+            with open(env_file, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception as e:
+            return jsonify({'error': f'Could not read .env: {e}'}), 500
+
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('DEFAULT_BASE_URL='):
+            new_lines.append(f'DEFAULT_BASE_URL={new_base_url}\n')
+            found_base_url = True
+        elif stripped.startswith('DEFAULT_PROVIDER='):
+            new_lines.append(f'DEFAULT_PROVIDER={new_provider}\n')
+            found_provider = True
+        else:
+            new_lines.append(line)
+
+    if not found_base_url:
+        new_lines.append(f'DEFAULT_BASE_URL={new_base_url}\n')
+    if not found_provider:
+        new_lines.append(f'DEFAULT_PROVIDER={new_provider}\n')
+
+    try:
+        with open(env_file, 'w', encoding='utf-8') as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        return jsonify({'error': f'Could not write .env: {e}'}), 500
+
+    global DEFAULT_BASE_URL, DEFAULT_PROVIDER
+    os.environ['DEFAULT_BASE_URL'] = new_base_url
+    os.environ['DEFAULT_PROVIDER'] = new_provider
+    DEFAULT_BASE_URL = get_default_base_url()
+    DEFAULT_PROVIDER = new_provider
+    PROVIDER_BASE_URLS['openai'] = DEFAULT_BASE_URL
+
+    return jsonify({
+        'status': 'ok',
+        'message': 'Settings saved to .env',
+        'default_base_url': new_base_url,
+        'default_provider': new_provider,
+    })
 
 
 @app.route('/list-models', methods=['POST'])
