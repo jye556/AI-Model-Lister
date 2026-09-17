@@ -1,46 +1,139 @@
 # AI Model Lister
 
-Simple web UI to list and test AI models across providers: OpenAI-compatible APIs
-(OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA NIM),
-xAI Grok, Google Gemini, and Anthropic Claude.
+A single-page web UI to **list, test, and compare AI models** across providers — OpenAI-compatible APIs (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA NIM), xAI Grok, Google Gemini, and Anthropic Claude.
+
+List models per provider, run batch tests with live token streaming, measure latency / time-to-first-token / token usage / estimated cost, and compare two providers' model availability side by side.
+
+> API keys are only used for outbound requests and are **never** stored. Other settings are remembered in the browser's `localStorage`.
+
+---
 
 ## Features
 
-- Live model listing per provider (with metadata such as display name, context window, owner)
-- Single and batch model testing — sequential or concurrent, with a configurable delay between calls
-- Optional streaming mode that measures time-to-first-token (TTFT) **and renders tokens live in the UI**
-- Token usage (prompt/completion) captured per test, with **estimated cost** from an editable per-model pricing table
-- Configurable generation parameters (system prompt, max tokens, temperature)
-- Retry-failed button to re-run just the errored models
-- Click any row to expand and view the full response, tokens, TTFT, and cost
-- Batch summary stats after a run (success rate, min/avg/max latency, output tokens, tokens/sec, est. cost)
-- Search/filter, sortable results, side-by-side comparison of selected models
-- Two-provider model availability comparison (shared, only A, only B) by exact model ID
-- CSV / JSON export of test results (includes token counts and cost)
-- Light/dark theme toggle, toast notifications, `Ctrl+Enter` to run a test
-- Checked-model selection remembered per provider in localStorage
-- Prompt presets and settings remembered in localStorage (the API key is never stored)
-- Extra custom headers (e.g. OpenRouter's `HTTP-Referer`) and a configurable request timeout
-- `/health` endpoint and Docker `HEALTHCHECK`
+### Listing & testing
+- Live model listing per provider, with metadata (display name, context window, owner, creation date)
+- Single-model and **batch** testing — sequential or concurrent, with a configurable delay between calls
+- **Live streaming** — tokens render in the UI as they arrive, with time-to-first-token (TTFT) measured
+- **Token usage** (prompt / completion) captured per test, with **estimated cost** from an editable per-model pricing table
+- **Configurable generation parameters** — system prompt, max tokens, temperature
+- **Temperature auto-fallback** — reasoning models (e.g. `o1`/`o3`/`o4`) that reject non-`1` temperatures are automatically retried without the field
+- **Retry Failed** button to re-run just the errored models
+- Click any row to **expand** the full response, tokens, TTFT, and cost
+- **Batch summary** cards — success rate, min/avg/max latency, output tokens, tokens/sec, est. cost
 
-## Run with Docker
+### Comparison & export
+- Search/filter, sortable results, side-by-side comparison of selected models
+- **Two-provider availability comparison** — shared, only-A, only-B by exact model ID
+- **CSV / JSON export** of test results (includes token counts and cost)
+
+### UX
+- Light/dark theme toggle, toast notifications, `Ctrl+Enter` to run a test
+- Checked-model selection remembered per provider in `localStorage`
+- Prompt presets and settings remembered in `localStorage`
+- Extra custom headers (e.g. OpenRouter's `HTTP-Referer`) and a configurable request timeout
+
+### Operations
+- `/health` endpoint + Docker `HEALTHCHECK`
+- In-app **self-update** — detect a newer version on GitHub and pull + restart with one click
+
+---
+
+## Quick start
+
+### Run with Docker
 
 ```bash
 docker build -t model-lister .
 docker run -p 2463:2463 model-lister
-
-# keep a custom default OpenAI-compatible endpoint:
-docker run -p 2463:2463 -e DEFAULT_BASE_URL=https://sub2api.midah.my/v1 model-lister
 ```
 
-Then open http://localhost:2463
+Open http://localhost:2463
 
-## Run locally
+### Run locally
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
+
+Open http://localhost:2463
+
+---
+
+## Configuration
+
+All settings are optional environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DEFAULT_BASE_URL` | `https://sub2api.midah.my/v1` | Default OpenAI-compatible endpoint |
+| `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
+| `GITHUB_REPO` | `jye556/AI-Model-Lister` | Repo checked for self-update `version.txt` |
+| `UPDATE_BRANCH` | `main` | Branch to pull when updating |
+| `RESTART_CMD` | *(unset)* | Shell command to restart after update (set under gunicorn/Docker/supervisor) |
+
+Examples:
+
+```bash
+# python app.py (dev — self-restart needs no RESTART_CMD)
+DEFAULT_BASE_URL=https://api.openai.com/v1 python app.py
+
+# gunicorn / supervisor
+GITHUB_REPO=jye556/AI-Model-Lister RESTART_CMD="systemctl restart model-lister" \
+    gunicorn --workers 2 --bind 0.0.0.0:2463 app:app
+
+# Docker
+docker run -p 2463:2463 -e GITHUB_REPO=jye556/AI-Model-Lister model-lister
+```
+
+---
+
+## Self-update (push to GitHub → pull in the app)
+
+1. **Bump `version.txt`** at the repo root (single source of truth — `app.py` reads it).
+2. Commit and push to the `main` branch:
+   ```bash
+   git add version.txt app.py templates/index.html
+   git commit -m "Release v3.1"
+   git push origin main
+   ```
+3. The running app calls `GET /check-update` on page load, comparing the local `version.txt` against `https://raw.githubusercontent.com/jye556/AI-Model-Lister/main/version.txt`. If a newer version is found, a banner appears: **New version vX available (current vY)**.
+4. Press **Update** → the app runs `git fetch` + `git reset --hard origin/main`, restarts itself, and the page auto-reloads when it is back up. **Dismiss** hides the banner for that version until the next one ships.
+
+Notes:
+- Works out of the box when run from a **git checkout** (`python app.py` / gunicorn from the repo).
+- Under **Docker**, code is `COPY`ed in (no `.git`), so the Update button instead shows the host-side commands (`docker compose pull && docker compose up -d`).
+- Set `RESTART_CMD` when a process supervisor manages the app.
+
+---
+
+## HTTP API
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | The web UI |
+| `POST` | `/list-models` | List models for a provider |
+| `POST` | `/test-model` | Run one model test (returns response + TTFT + usage as JSON) |
+| `POST` | `/test-model-stream` | Live-stream a model test as SSE (`ttft` / `delta` / `usage` / `retry` / `done`) |
+| `GET` | `/check-update` | Compare local version against GitHub |
+| `POST` | `/update` | Pull latest and restart (or return Docker guidance) |
+| `GET` | `/health` | `{status, version}` |
+
+---
+
+## Provider notes
+
+- **OpenAI-compatible** (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA NIM) — `/models` and `/chat/completions`.
+- **Azure** — set the base URL to `https://YOUR-RESOURCE.openai.azure.com/openai/v1` and use an Azure API key.
+- **Ollama** — no API key; default `http://localhost:11434/v1`.
+- **xAI Grok** — test calls use the `/responses` API.
+- **Google Gemini** — auth via the `x-goog-api-key` header (never a `?key=` query param); context window surfaced from `inputTokenLimit`.
+- **Anthropic Claude** — lists models from `/v1/models`, falling back to a static list if it is unreachable.
+- **NVIDIA NIM** — `https://integrate.api.nvidia.com/v1` with a Bearer `nvapi-...` key.
+- **DeepSeek, Mistral, Groq, Together** — pre-configured OpenAI-compatible providers with their own entries (each uses a Bearer API key).
+- **AWS Bedrock** is not supported — it requires SigV4 signing (access key + secret + region) rather than a single API key.
+
+---
 
 ## Tests
 
@@ -48,71 +141,16 @@ python app.py
 python -m unittest discover -s tests -v
 ```
 
-## Deploying updates (push to GitHub / pull from GitHub)
+The suite covers provider dispatch, auth/header handling, streaming TTFT + usage, temperature auto-fallback, the SSE endpoint, and the self-update check/guidance paths.
 
-The app can detect when a newer version is published on GitHub and self-update.
+---
 
-### 1. Push a new version
+## Tech stack
 
-```bash
-# bump version.txt (single source of truth — app.py reads it)
-# echo "3.1" > version.txt   (or edit it)
-git add version.txt app.py templates/index.html
-git commit -m "Release v3.1"
-git push origin main
-```
+- **Backend:** Python, Flask, requests, gunicorn
+- **Frontend:** single-file HTML/CSS/vanilla JS (no build step)
+- **Container:** Docker (Python 3.11-slim)
 
-### 2. Configure the running app
+## License
 
-Set these env vars (on the host running the app):
-
-| Variable | Required | Example | Purpose |
-|---|---|---|---|
-| `GITHUB_REPO` | yes | `JYENB/model-lister` | Where the app checks `version.txt` for a newer version |
-| `UPDATE_BRANCH` | no (default `main`) | `main` | Branch to pull from |
-| `RESTART_CMD` | no | `systemctl restart model-lister` | Shell command to restart after update (set under gunicorn/Docker/supervisor) |
-
-```bash
-# python app.py (dev / self-restart — no RESTART_CMD needed)
-GITHUB_REPO=JYENB/model-lister python app.py
-
-# gunicorn / supervisor (set RESTART_CMD)
-GITHUB_REPO=JYENB/model-lister RESTART_CMD="systemctl restart model-lister" \
-    gunicorn --workers 2 --bind 0.0.0.0:2463 app:app
-
-# Docker: build & push the image, then on the host:
-#   docker compose pull && docker compose up -d
-# In-container `git pull` does not apply (code is COPYed in); the Update button
-# instead shows the host-side docker commands to run.
-```
-
-### 3. In-app update
-
-On page load the app calls `GET /check-update`, comparing the local `version.txt`
-against `https://raw.githubusercontent.com/<GITHUB_REPO>/<UPDATE_BRANCH>/version.txt`.
-If a newer version is found, a banner appears: **New version vX available (current vY)**.
-Press **Update** → the app runs `git fetch` + `git reset --hard origin/<branch>`,
-restarts itself, and the page auto-reloads when it is back up.
-Dismiss hides the banner for that version until the next one.
-
-Endpoints:
-
-- `GET /check-update` → `{configured, has_update, current, remote, repo, branch}`
-- `POST /update` → pulls and restarts (or returns Docker host guidance if no git checkout)
-- `GET /health` → `{status: ok, version}` (used by the UI to detect the restart)
-
-## Provider notes
-
-- **Azure** uses the OpenAI-compatible `/openai/v1` paths: set the base URL to
-  `https://YOUR-RESOURCE.openai.azure.com/openai/v1` and use an Azure API key.
-- **Ollama** needs no API key; the default base URL is `http://localhost:11434/v1`.
-- **xAI** test calls use the `/responses` API.
-- **Claude** lists models from Anthropic's `/v1/models` endpoint, falling back to a
-  static list if it is unreachable.
-- **NVIDIA NIM** uses the OpenAI-compatible endpoint at `https://integrate.api.nvidia.com/v1`
-  with a Bearer `nvapi-...` API key.
-- **DeepSeek, Mistral, Groq, Together** are pre-configured OpenAI-compatible providers with
-  their own provider entries (each uses a Bearer API key).
-- **AWS Bedrock is not supported**: it requires SigV4 signing with an access key,
-  secret, and region rather than a single API key.
->>>>>>> dfbb523 (Initial commit)
+This project is provided as-is for personal/internal use.

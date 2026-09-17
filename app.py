@@ -35,7 +35,7 @@ DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
 # UPDATE_BRANCH: branch to pull from (default "main").
 # RESTART_CMD: optional shell command used to restart after an update
 #   (set this under gunicorn/Docker/supervisor; if unset, the dev server self-restarts).
-GITHUB_REPO = os.environ.get('GITHUB_REPO', '').strip()
+GITHUB_REPO = os.environ.get('GITHUB_REPO', 'jye556/AI-Model-Lister').strip()
 UPDATE_BRANCH = (os.environ.get('UPDATE_BRANCH', 'main').strip() or 'main')
 RESTART_CMD = os.environ.get('RESTART_CMD', '').strip()
 
