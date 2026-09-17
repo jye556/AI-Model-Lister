@@ -1998,6 +1998,9 @@
             try {
                 const res = await fetch('/check-update');
                 const data = await res.json();
+                if (data.error) {
+                    console.warn('[AI Model Lister] Check update:', data.error);
+                }
                 if (!data.configured || !data.has_update) return;
                 let dismissed = null;
                 try { dismissed = JSON.parse(localStorage.getItem(UPDATE_DISMISS_KEY) || 'null'); } catch (e) {}

@@ -440,6 +440,21 @@ class UpdateTests(unittest.TestCase):
                 resp = self.client.get('/check-update')
             self.assertFalse(resp.get_json()['has_update'])
 
+    def test_check_update_git_fallback_when_http_404(self):
+        with mock.patch.object(app_module, 'GITHUB_REPO', 'me/repo'), \
+             mock.patch.object(app_module, 'UPDATE_BRANCH', 'main'), \
+             mock.patch.object(app_module, 'VERSION', '3.0'), \
+             mock.patch.object(app_module, '_repo_root', return_value='/fake/root'), \
+             mock.patch.object(app_module, '_get_remote_version_git', return_value='3.1'):
+            fake = FakeResponse(text='404: Not Found', status_code=404)
+            with mock.patch.object(app_module.requests, 'get', return_value=fake):
+                resp = self.client.get('/check-update')
+            body = resp.get_json()
+            self.assertTrue(body['configured'])
+            self.assertTrue(body['has_update'])
+            self.assertEqual(body['remote'], '3.1')
+            self.assertEqual(body['current'], '3.0')
+
     def test_update_requires_repo_config(self):
         with mock.patch.object(app_module, 'GITHUB_REPO', ''):
             resp = self.client.post('/update')

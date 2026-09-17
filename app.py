@@ -38,6 +38,7 @@ DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
 GITHUB_REPO = os.environ.get('GITHUB_REPO', 'jye556/AI-Model-Lister').strip()
 UPDATE_BRANCH = (os.environ.get('UPDATE_BRANCH', 'main').strip() or 'main')
 RESTART_CMD = os.environ.get('RESTART_CMD', '').strip()
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '').strip()
 
 PROVIDER_BASE_URLS = {
     'openai': DEFAULT_BASE_URL,
@@ -510,27 +511,64 @@ def _do_restart():
     os._exit(0)
 
 
+def _get_remote_version_git(root):
+    """Try to read version.txt from the remote branch via git in a local checkout."""
+    try:
+        fetch = _git(['fetch', '--quiet', 'origin', UPDATE_BRANCH], root, timeout=15)
+        if fetch.returncode == 0:
+            show = _git(['show', f'origin/{UPDATE_BRANCH}:version.txt'], root, timeout=5)
+            if show.returncode == 0 and show.stdout.strip():
+                return show.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 @app.route('/check-update')
 def check_update():
     """Compare the local VERSION against version.txt on the configured GitHub branch."""
     if not GITHUB_REPO:
         return jsonify({'configured': False})
+
+    remote = None
+    http_error = None
+
+    # 1. Try HTTP fetch
     url = f'https://raw.githubusercontent.com/{GITHUB_REPO}/{UPDATE_BRANCH}/version.txt'
+    headers = {}
+    if GITHUB_TOKEN:
+        headers['Authorization'] = f'token {GITHUB_TOKEN}'
     try:
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return jsonify({'configured': True, 'has_update': False,
-                            'current': VERSION, 'error': f'HTTP {resp.status_code}'})
-        remote = resp.text.strip()
-        has_update = bool(remote) and remote != VERSION
-        return jsonify({
-            'configured': True, 'has_update': has_update,
-            'current': VERSION, 'remote': remote,
-            'repo': GITHUB_REPO, 'branch': UPDATE_BRANCH,
-        })
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            remote = resp.text.strip()
+        else:
+            http_error = f'HTTP {resp.status_code}'
     except requests.exceptions.RequestException as e:
+        http_error = str(e)
+
+    # 2. If HTTP failed (e.g. 404 on private repos), fall back to git if in a checkout
+    if not remote:
+        root = _repo_root()
+        if root:
+            git_ver = _get_remote_version_git(root)
+            if git_ver:
+                remote = git_ver
+                http_error = None
+
+    if not remote:
+        err = http_error or 'Could not determine remote version'
+        if '404' in err:
+            err += ' (if repository is private, make it public, set GITHUB_TOKEN, or run from a git checkout)'
         return jsonify({'configured': True, 'has_update': False,
-                        'current': VERSION, 'error': str(e)})
+                        'current': VERSION, 'error': err})
+
+    has_update = bool(remote) and remote != VERSION
+    return jsonify({
+        'configured': True, 'has_update': has_update,
+        'current': VERSION, 'remote': remote,
+        'repo': GITHUB_REPO, 'branch': UPDATE_BRANCH,
+    })
 
 
 @app.route('/update', methods=['POST'])
