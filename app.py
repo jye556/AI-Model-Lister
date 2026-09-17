@@ -1,8 +1,12 @@
 import base64
+import io
 import json
 import os
+import shutil
+import signal
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 
@@ -10,18 +14,19 @@ import requests
 from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__)
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def _read_version():
     """Read the app version from version.txt (single source of truth, also used remotely)."""
     try:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'version.txt')) as f:
+        with open(os.path.join(APP_DIR, 'version.txt')) as f:
             v = f.read().strip()
         if v:
             return v
     except OSError:
         pass
-    return '3.2'
+    return '3.3'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
@@ -573,7 +578,32 @@ def _git(args, cwd, timeout=120):
 
 
 def _do_restart():
-    """Restart the app after a successful update. Detached, then exit this process."""
+    """Restart or reload the app after a successful update."""
+    global VERSION
+    try:
+        VERSION = _read_version()
+    except Exception:
+        pass
+
+    if RESTART_CMD:
+        try:
+            subprocess.Popen(RESTART_CMD, shell=True)
+            return
+        except Exception:
+            pass
+
+    # Gunicorn graceful reload on Unix (Docker / production)
+    if hasattr(signal, 'SIGHUP'):
+        ppid = os.getppid()
+        for target_pid in (ppid, 1):
+            if target_pid > 0:
+                try:
+                    os.kill(target_pid, signal.SIGHUP)
+                    return
+                except (ProcessLookupError, PermissionError):
+                    pass
+
+    # Direct process restart (dev server / standalone python)
     target = os.path.abspath(__file__)
     if os.name == 'nt':
         # Wait for this process to release the port, then relaunch.
@@ -584,6 +614,58 @@ def _do_restart():
         cmd = f'sleep 2 && exec "{sys.executable}" "{target}"'
         subprocess.Popen(['bash', '-c', cmd], start_new_session=True)
     os._exit(0)
+
+
+def _update_from_archive(target_dir):
+    """Download the repository archive from GitHub and update files in target_dir."""
+    url = f'https://github.com/{GITHUB_REPO}/archive/refs/heads/{UPDATE_BRANCH}.tar.gz'
+    headers = {'User-Agent': 'AI-Model-Lister-Updater'}
+    if GITHUB_TOKEN:
+        headers['Authorization'] = f'token {GITHUB_TOKEN}'
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f'Network error downloading update archive: {e}')
+
+    if resp.status_code != 200:
+        # Fallback: try GitHub API tarball URL
+        api_url = f'https://api.github.com/repos/{GITHUB_REPO}/tarball/{UPDATE_BRANCH}'
+        try:
+            resp = requests.get(api_url, headers=headers, timeout=30)
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f'Network error downloading update archive from API: {e}')
+        if resp.status_code != 200:
+            raise RuntimeError(f'Failed to download update archive (HTTP {resp.status_code})')
+
+    try:
+        with tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz') as tf:
+            members = tf.getmembers()
+            if not members:
+                raise RuntimeError('Empty archive received from GitHub')
+
+            top_prefix = members[0].name.split('/')[0] + '/'
+            for member in members:
+                if not member.name.startswith(top_prefix):
+                    continue
+                rel_path = member.name[len(top_prefix):]
+                # Skip root, git metadata, and local .env
+                if not rel_path or rel_path.startswith('.git') or rel_path == '.env':
+                    continue
+
+                dest_path = os.path.abspath(os.path.join(target_dir, rel_path))
+                # Protect against zip-slip directory traversal
+                if not dest_path.startswith(os.path.abspath(target_dir)):
+                    continue
+
+                if member.isdir():
+                    os.makedirs(dest_path, exist_ok=True)
+                elif member.isfile():
+                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                    with tf.extractfile(member) as src, open(dest_path, 'wb') as dst:
+                        shutil.copyfileobj(src, dst)
+    except Exception as e:
+        raise RuntimeError(f'Failed to extract update files: {e}')
 
 
 def _get_remote_version_git(root):
@@ -648,36 +730,35 @@ def check_update():
 
 @app.route('/update', methods=['POST'])
 def update_app():
-    """Pull the latest code from GitHub and restart. Works for a git checkout;
-    for a Docker image (no git) it returns host-side guidance instead."""
+    """Pull the latest code from GitHub and restart/reload. Works both for git
+    checkouts (git fetch/reset) and Docker containers (direct archive download)."""
     if not GITHUB_REPO:
         return jsonify({'updated': False,
                         'message': 'GITHUB_REPO is not configured; cannot update.'}), 400
 
     root = _repo_root()
-    if not root:
-        # No git available (typically a Docker image with COPYed code).
-        if RESTART_CMD:
-            threading.Thread(target=_do_restart, daemon=True).start()
-            return jsonify({'updated': True, 'message': 'Running RESTART_CMD to apply the image update...'})
-        return jsonify({'updated': False, 'docker': True,
-                        'message': 'Running outside a git checkout (likely a Docker image). '
-                                   'Update on the host with: docker compose pull && docker compose up -d '
-                                   '(or: docker pull <image> && docker restart <container>).'})
+    if root:
+        fetch = _git(['fetch', 'origin', UPDATE_BRANCH], root)
+        if fetch.returncode != 0:
+            return jsonify({'updated': False,
+                            'message': f'git fetch failed: {fetch.stderr.strip() or fetch.stdout.strip()}'}), 500
+        reset = _git(['reset', '--hard', f'origin/{UPDATE_BRANCH}'], root)
+        if reset.returncode != 0:
+            return jsonify({'updated': False,
+                            'message': f'git reset failed: {reset.stderr.strip() or reset.stdout.strip()}'}), 500
+    else:
+        # Non-git environment (e.g. Docker container)
+        try:
+            _update_from_archive(APP_DIR)
+        except Exception as e:
+            return jsonify({'updated': False,
+                            'message': f'Update failed: {e}'}), 500
 
-    fetch = _git(['fetch', 'origin', UPDATE_BRANCH], root)
-    if fetch.returncode != 0:
-        return jsonify({'updated': False,
-                        'message': f'git fetch failed: {fetch.stderr.strip() or fetch.stdout.strip()}'}), 500
-    reset = _git(['reset', '--hard', f'origin/{UPDATE_BRANCH}'], root)
-    if reset.returncode != 0:
-        return jsonify({'updated': False,
-                        'message': f'git reset failed: {reset.stderr.strip() or reset.stdout.strip()}'}), 500
-
-    # Success — relaunch. Send the response first, then restart shortly after.
+    new_ver = _read_version()
+    # Success — relaunch / reload. Send the response first, then reload shortly after.
     threading.Thread(target=lambda: (time.sleep(1.0), _do_restart()), daemon=True).start()
     return jsonify({'updated': True,
-                    'message': f'Updated to origin/{UPDATE_BRANCH}. Restarting...'})
+                    'message': f'Updated to v{new_ver}. Reloading...'})
 
 
 @app.route('/list-models', methods=['POST'])

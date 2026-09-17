@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest import mock
 
@@ -503,15 +504,64 @@ class UpdateTests(unittest.TestCase):
             resp = self.client.post('/update')
         self.assertEqual(resp.status_code, 400)
 
-    def test_update_docker_guidance_when_no_git(self):
+    def test_update_archive_when_no_git(self):
         with mock.patch.object(app_module, 'GITHUB_REPO', 'me/repo'), \
-             mock.patch.object(app_module, 'RESTART_CMD', ''), \
-             mock.patch.object(app_module, '_repo_root', return_value=None):
+             mock.patch.object(app_module, '_repo_root', return_value=None), \
+             mock.patch.object(app_module, '_update_from_archive') as mock_update, \
+             mock.patch.object(app_module, '_do_restart'):
             resp = self.client.post('/update')
         body = resp.get_json()
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(body['updated'])
+        self.assertIn('Reloading', body['message'])
+        mock_update.assert_called_once_with(app_module.APP_DIR)
+
+    def test_update_archive_failure_surfaced(self):
+        with mock.patch.object(app_module, 'GITHUB_REPO', 'me/repo'), \
+             mock.patch.object(app_module, '_repo_root', return_value=None), \
+             mock.patch.object(app_module, '_update_from_archive', side_effect=RuntimeError('archive error')):
+            resp = self.client.post('/update')
+        body = resp.get_json()
+        self.assertEqual(resp.status_code, 500)
         self.assertFalse(body['updated'])
-        self.assertTrue(body.get('docker'))
-        self.assertIn('docker', body['message'])
+        self.assertIn('archive error', body['message'])
+
+    def test_update_from_archive_extracts_files(self):
+        import io
+        import shutil
+        import tarfile
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        try:
+            buf = io.BytesIO()
+            with tarfile.open(fileobj=buf, mode='w:gz') as tf:
+                vdata = b"3.3"
+                ti = tarfile.TarInfo(name="repo-main/version.txt")
+                ti.size = len(vdata)
+                tf.addfile(ti, io.BytesIO(vdata))
+
+                app_data = b"# new code"
+                ti2 = tarfile.TarInfo(name="repo-main/app.py")
+                ti2.size = len(app_data)
+                tf.addfile(ti2, io.BytesIO(app_data))
+
+                env_data = b"SECRET_KEY=overwrite"
+                ti3 = tarfile.TarInfo(name="repo-main/.env")
+                ti3.size = len(env_data)
+                tf.addfile(ti3, io.BytesIO(env_data))
+            buf.seek(0)
+            fake = FakeResponse(status_code=200)
+            fake.content = buf.getvalue()
+            with mock.patch.object(app_module.requests, 'get', return_value=fake):
+                app_module._update_from_archive(temp_dir)
+
+            with open(os.path.join(temp_dir, 'version.txt'), 'r') as f:
+                self.assertEqual(f.read().strip(), '3.3')
+            with open(os.path.join(temp_dir, 'app.py'), 'r') as f:
+                self.assertEqual(f.read().strip(), "# new code")
+            self.assertFalse(os.path.exists(os.path.join(temp_dir, '.env')))
+        finally:
+            shutil.rmtree(temp_dir)
 
 
 if __name__ == '__main__':

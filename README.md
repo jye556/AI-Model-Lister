@@ -119,12 +119,15 @@ docker run -p 2463:2463 -e GITHUB_REPO=jye556/AI-Model-Lister model-lister
    git push origin main
    ```
 3. The running app calls `GET /check-update` on page load, comparing the local `version.txt` against `https://raw.githubusercontent.com/jye556/AI-Model-Lister/main/version.txt`. If a newer version is found, a banner appears: **New version vX available (current vY)**.
-4. Press **Update** → the app runs `git fetch` + `git reset --hard origin/main`, restarts itself, and the page auto-reloads when it is back up. **Dismiss** hides the banner for that version until the next one ships.
+4. Press **Update** → the app automatically pulls the latest code and reloads:
+   - In a **git checkout**: runs `git fetch` + `git reset --hard origin/main`.
+   - In **Docker**: downloads the latest archive directly from GitHub, updates `/app`, and hot-reloads Gunicorn workers with zero downtime.
+   - **Dismiss** hides the banner for that version until the next one ships.
 
 Notes:
-- Works out of the box when run from a **git checkout** (`python app.py` / gunicorn from the repo).
-- Under **Docker**, code is `COPY`ed in (no `.git`), so the Update button instead shows the host-side commands (`docker compose pull && docker compose up -d`).
-- Set `RESTART_CMD` when a process supervisor manages the app.
+- Works out of the box both in **Docker** and from a **git checkout**.
+- Local configuration (`.env`) is protected and never overwritten during updates.
+- Set `RESTART_CMD` if a custom process supervisor manages the app.
 
 ---
 
