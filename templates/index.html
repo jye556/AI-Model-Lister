@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Model Lister</title>
+    <style>
+        :root {
+            --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128;
+            --border: #30363d; --border2: #21262d;
+            --text: #e6edf3; --text2: #c9d1d9; --muted: #8b949e; --faint: #6e7681; --dim: #484f58;
+            --bright: #f0f6fc;
+            --accent: #58a6ff; --accent2: #79c0ff;
+            --green: #3fb950; --green-bg: #238636; --green-h: #2ea043;
+            --yellow: #d29922; --orange-bg: #9e6a03; --orange-h: #bb8009;
+            --red: #f85149; --red-bg: #da3633; --red-bg2: #f85149;
+            --blue-bg: #1f6feb; --blue-h: #388bfd;
+            --error-bg: #2d1214; --error-border: #f8514933;
+            --shadow: rgba(0,0,0,0.4); --focus: rgba(88,166,255,0.15);
+        }
+        body.light {
+            --bg: #ffffff; --bg2: #f6f8fa; --bg3: #eef1f4;
+            --border: #d0d7de; --border2: #e1e4e8;
+            --text: #1f2328; --text2: #24292f; --muted: #57606a; --faint: #6e7681; --dim: #8c959f;
+            --bright: #050a14;
+            --accent: #0969da; --accent2: #218bff;
+            --green: #1a7f37; --green-bg: #1f883d; --green-h: #1a7f37;
+            --yellow: #9a6700; --orange-bg: #bf8700; --orange-h: #954000;
+            --red: #cf222e; --red-bg: #cf222e; --red-bg2: #cf222e;
+            --blue-bg: #0969da; --blue-h: #218bff;
+            --error-bg: #ffebe9; --error-border: #ff818233;
+            --shadow: rgba(31,35,40,0.12); --focus: rgba(9,105,218,0.18);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px; margin: 40px auto; padding: 20px;
+            background: var(--bg); color: var(--text);
+        }
+        .container {
+            background: var(--bg2);
+            padding: 30px; border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px var(--shadow);
+        }
+        .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        h1 { margin-top: 0; color: var(--bright); }
+        .icon-btn {
+            background: var(--bg3); color: var(--text2); border: 1px solid var(--border);
+            border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 14px;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+        p { color: var(--muted); }
+        .form-group { margin-bottom: 16px; }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; margin-bottom: 16px; }
+        .form-row .form-group.narrow { flex: 0 0 130px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text2); }
+        select, input[type="text"], textarea {
+            width: 100%; padding: 10px;
+            background: var(--bg); color: var(--text);
+            border: 1px solid var(--border); border-radius: 6px;
+            font-size: 14px;
+        }
+        select:focus, input[type="text"]:focus, textarea:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--focus);
+        }
+        select option { background: var(--bg2); color: var(--text); }
+        button {
+            background: var(--green-bg); color: #fff; border: none;
+            padding: 12px 24px; font-size: 15px; border-radius: 6px;
+            cursor: pointer; font-weight: 600;
+            transition: background 0.15s;
+        }
+        button:hover { background: var(--green-h); }
+        button:disabled { background: var(--bg3); color: var(--dim); cursor: not-allowed; }
+        #result { margin-top: 24px; }
+
+        /* Model list */
+        .models {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 0;
+            max-height: 600px; overflow-y: auto;
+        }
+        .models::-webkit-scrollbar { width: 8px; }
+        .models::-webkit-scrollbar-track { background: var(--bg); border-radius: 8px; }
+        .models::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+        .models::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+        .model-row {
+            display: flex; align-items: flex-start;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border2);
+            font-size: 13px;
+        }
+        .model-row:last-child { border-bottom: none; }
+        .model-row:hover { background: var(--bg3); }
+        .model-header {
+            display: flex; align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px; font-weight: 700;
+            color: var(--muted); text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--bg2);
+            position: sticky; top: 0; z-index: 1;
+        }
+        .model-header:hover { background: var(--bg2); }
+        .model-header .sortable { cursor: pointer; user-select: none; }
+        .model-header .sortable:hover { color: var(--accent); }
+        .col-check { width: 30px; flex-shrink: 0; }
+        .col-check input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
+        .col-model { width: 280px; flex-shrink: 0; font-family: monospace; }
+        .col-model a, .col-model span.model-name {
+            cursor: pointer; color: var(--accent);
+        }
+        .col-model a:hover, .col-model span.model-name:hover {
+            text-decoration: underline; color: var(--accent2);
+        }
+        .model-meta {
+            font-size: 11px; color: var(--faint); margin-top: 2px;
+            font-family: system-ui, sans-serif; word-break: break-word;
+        }
+        .col-response {
+            flex: 1; min-width: 0;
+            font-family: system-ui, sans-serif;
+            font-size: 12px; color: var(--muted);
+            padding-left: 16px; word-break: break-word;
+        }
+        .col-response.pending { color: var(--faint); }
+        .col-response.running { color: var(--yellow); }
+        .col-response.success { color: var(--green); }
+        .col-response.error { color: var(--red); }
+        .row-meta { font-size: 11px; color: var(--faint); margin-top: 2px; }
+        .col-time {
+            width: 150px; flex-shrink: 0;
+            text-align: right; padding-left: 12px;
+            font-family: monospace; font-size: 12px; color: var(--muted);
+        }
+        .col-time.success { color: var(--green); }
+        .col-time.error { color: var(--red); }
+
+        .row-expand {
+            background: var(--bg3); border-bottom: 1px solid var(--border2);
+            padding: 12px 16px 12px 46px; font-size: 13px;
+        }
+        .expand-model { font-family: monospace; color: var(--accent2); margin-bottom: 4px; }
+        .expand-stats { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+        .expand-body {
+            white-space: pre-wrap; word-break: break-word; color: var(--text2);
+            background: var(--bg); border: 1px solid var(--border2);
+            padding: 10px; border-radius: 6px; max-height: 320px; overflow-y: auto;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex; align-items: center; gap: 10px;
+            flex-wrap: wrap; margin-bottom: 10px;
+            padding: 10px 12px;
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .toolbar label {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin: 0; font-weight: 500; font-size: 14px;
+            cursor: pointer; white-space: nowrap; color: var(--text2);
+        }
+        .toolbar button { padding: 8px 16px; font-size: 13px; }
+        .btn-green { background: var(--green-bg); }
+        .btn-green:hover { background: var(--green-h); }
+        .btn-green:disabled { background: var(--bg3); color: var(--dim); }
+        .btn-orange { background: var(--orange-bg); }
+        .btn-orange:hover { background: var(--orange-h); }
+        .btn-orange:disabled { background: var(--bg3); color: var(--dim); }
+        .btn-blue { background: var(--blue-bg); }
+        .btn-blue:hover { background: var(--blue-h); }
+        .btn-blue:disabled { background: var(--bg3); color: var(--dim); }
+        .btn-red { background: var(--red-bg); }
+        .btn-red:hover { background: var(--red-bg2); }
+        .toolbar .spacer { flex: 1; }
+
+        /* Prompt bar */
+        .prompt-bar {
+            display: flex; gap: 10px; align-items: center;
+            margin-bottom: 10px; flex-wrap: wrap;
+        }
+        .prompt-bar .duration-group {
+            display: flex; align-items: center; gap: 4px;
+            flex-shrink: 0; white-space: nowrap;
+        }
+        .prompt-bar .duration-group label {
+            font-size: 13px; font-weight: 500; margin: 0; color: var(--muted);
+        }
+        .prompt-bar .duration-group input[type="text"] {
+            width: 60px; text-align: center;
+        }
+        .prompt-bar .duration-group input[type="checkbox"] {
+            accent-color: var(--accent); cursor: pointer;
+        }
+        .prompt-bar select { width: auto; flex-shrink: 0; }
+        .prompt-bar input[type="text"] { flex: 1; min-width: 200px; }
+        .prompt-bar button { padding: 9px 14px; font-size: 13px; white-space: nowrap; }
+        .advanced-toggle {
+            background: transparent; color: var(--muted); border: 1px solid var(--border);
+            padding: 6px 12px; font-size: 12px; border-radius: 6px; cursor: pointer;
+        }
+        .advanced-toggle:hover { color: var(--accent); border-color: var(--accent); }
+        .advanced-row {
+            display: none; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+            margin-bottom: 10px; padding: 12px;
+            background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+        }
+        .advanced-row.open { display: flex; }
+        .advanced-row .form-group { margin: 0; flex: 1; min-width: 160px; }
+        .advanced-row .form-group.narrow { flex: 0 0 120px; }
+
+        /* Single-model test panel */
+        .test-panel {
+            margin-top: 16px;
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 8px; padding: 16px;
+        }
+        .test-panel h3 { margin: 0 0 12px 0; font-size: 15px; color: var(--text); }
+        .test-panel code { background: var(--bg); padding: 2px 6px; border-radius: 4px; color: var(--accent2); }
+        textarea {
+            width: 100%; padding: 10px;
+            background: var(--bg); color: var(--text);
+            border: 1px solid var(--border); border-radius: 6px;
+            font-size: 14px; resize: vertical;
+        }
+        .response {
+            background: var(--bg); border: 1px solid var(--border);
+            padding: 12px; border-radius: 6px;
+            margin-top: 12px; white-space: pre-wrap;
+            font-size: 14px; color: var(--text2);
+        }
+        .error {
+            color: var(--red); background: var(--error-bg);
+            border: 1px solid var(--error-border);
+            padding: 12px; border-radius: 6px;
+        }
+        .count { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+        .note { font-size: 12px; color: var(--dim); margin-top: 20px; }
+
+        /* Update banner */
+        .update-banner {
+            display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+            margin-bottom: 16px; padding: 12px 16px; border-radius: 8px;
+            background: var(--bg3); border: 1px solid var(--accent);
+            color: var(--text);
+        }
+        .update-banner.show { display: flex; }
+        .update-banner .msg { flex: 1; min-width: 0; font-size: 14px; }
+        .update-banner .msg code { background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--accent2); }
+        .update-banner .msg small { color: var(--muted); display: block; margin-top: 2px; word-break: break-word; }
+        .update-banner button { padding: 8px 16px; font-size: 13px; }
+
+        /* Compare panel */
+        .compare-wrap { display: flex; flex-wrap: wrap; gap: 12px; }
+        .compare-col {
+            flex: 1 1 280px; min-width: 0;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 6px; padding: 10px;
+        }
+        .compare-col h4 {
+            margin: 0 0 8px 0; font-size: 12px; color: var(--accent);
+            font-family: monospace; word-break: break-all;
+        }
+        .compare-body {
+            font-size: 12px; color: var(--text2);
+            white-space: pre-wrap; word-break: break-word;
+            max-height: 400px; overflow-y: auto;
+        }
+
+        /* Progress + summary */
+        .progress-bar-container {
+            height: 4px; background: var(--border2);
+            border-radius: 2px; margin-bottom: 10px; overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%; background: var(--accent);
+            border-radius: 2px; transition: width 0.3s; width: 0%;
+        }
+        .progress-text { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+        .summary-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .summary-card {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px 16px; min-width: 110px;
+        }
+        .summary-card .num { font-size: 20px; font-weight: 700; color: var(--bright); }
+        .summary-card .label { font-size: 12px; color: var(--muted); }
+
+        /* Provider comparison */
+        .compare-panel {
+            margin-top: 24px;
+            background: var(--bg2); padding: 20px;
+            border-radius: 12px; border: 1px solid var(--border);
+        }
+        .compare-panel h2 { margin-top: 0; color: var(--bright); font-size: 18px; }
+        .compare-panel p { color: var(--muted); }
+        .provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 760px) { .provider-grid { grid-template-columns: 1fr; } }
+        .provider-card {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 16px;
+        }
+        .provider-card h3 {
+            margin: 0 0 12px 0; font-size: 12px; color: var(--accent);
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .compare-summary {
+            display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0;
+        }
+        .compare-section { margin-top: 16px; }
+        .compare-section h3 { margin: 0 0 8px 0; font-size: 13px; color: var(--text2); }
+        .compare-table {
+            width: 100%; border-collapse: collapse;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; overflow: hidden;
+        }
+        .compare-table th, .compare-table td {
+            text-align: left; padding: 8px 12px;
+            border-bottom: 1px solid var(--border2); font-size: 13px;
+        }
+        .compare-table th {
+            background: var(--bg2); color: var(--muted);
+            font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .compare-table td.col-model { font-family: monospace; word-break: break-all; }
+        .compare-table .yes { color: var(--green); font-weight: 700; }
+        .compare-table .no { color: var(--red); font-weight: 700; }
+
+        .copy-btn {
+            background: transparent; border: 1px solid var(--border); color: var(--muted);
+            border-radius: 4px; padding: 1px 5px; margin-left: 6px;
+            font-size: 11px; cursor: pointer; vertical-align: middle;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+        .copy-btn.copied { color: var(--green); border-color: var(--green); }
+        .expand-btn {
+            background: transparent; border: 1px solid var(--border); color: var(--muted);
+            border-radius: 4px; padding: 1px 5px; margin-left: 4px;
+            font-size: 11px; cursor: pointer; vertical-align: middle;
+        }
+        .expand-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* Side panel navigation */
+        .layout { display: flex; gap: 20px; }
+        .side-panel {
+            width: 220px; flex-shrink: 0; position: sticky; top: 20px;
+            background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px; height: fit-content;
+        }
+        .side-item {
+            display: block; width: 100%; text-align: left;
+            background: var(--bg); color: var(--text2);
+            border: 1px solid var(--border); border-radius: 6px;
+            padding: 10px 12px; margin-bottom: 8px;
+            cursor: pointer; font-size: 14px; font-weight: 600;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .side-item:last-child { margin-bottom: 0; }
+        .side-item:hover { background: var(--bg3); border-color: var(--accent); }
+        .side-item.active { background: var(--blue-bg); color: #fff; border-color: var(--blue-h); }
+        .main-content { flex: 1; min-width: 0; }
+        .view { display: none; }
+        .view.active { display: block; }
+        @media (max-width: 760px) {
+            .layout { flex-direction: column; }
+            .side-panel { width: 100%; position: static; }
+            .side-item { width: auto; }
+        }
+
+        /* Toasts */
+        #toast-container {
+            position: fixed; top: 16px; right: 16px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+        }
+        .toast {
+            background: var(--bg2); color: var(--text); border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            padding: 12px 16px; border-radius: 6px; font-size: 14px;
+            box-shadow: 0 4px 16px var(--shadow); opacity: 1;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .toast-info { border-left-color: var(--accent); }
+        .toast-success { border-left-color: var(--green); }
+        .toast-error { border-left-color: var(--red); }
+        .toast-hide { opacity: 0; transform: translateX(10px); }
+
+        /* Pricing modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+            padding: 20px; width: 520px; max-width: 92vw; max-height: 80vh; overflow-y: auto;
+        }
+        .modal h3 { margin-top: 0; color: var(--bright); }
+        .modal table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .modal th, .modal td { padding: 6px 8px; border-bottom: 1px solid var(--border2); text-align: left; }
+        .modal input[type="text"] { padding: 5px 8px; font-size: 13px; }
+        .modal .price-input { width: 90px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <div class="container">
+        <div class="header-row">
+            <h1>AI Model Lister (v{{ version }})</h1>
+            <div>
+                <button class="icon-btn" onclick="openPricing()" title="Edit per-model pricing">💵 Pricing</button>
+                <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+            </div>
+        </div>
+        <p>Supports OpenAI-compatible APIs (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together), xAI Grok, Google Gemini, and Anthropic Claude.</p>
+
+        <div class="update-banner" id="update-banner">
+            <div class="msg" id="update-msg"></div>
+            <button class="btn-green" id="update-btn" onclick="performUpdate()">Update</button>
+            <button class="icon-btn" onclick="dismissUpdate()">Dismiss</button>
+        </div>
+
+        <div class="layout">
+            <nav class="side-panel">
+                <button class="side-item active" data-view="lister" onclick="switchView('lister')">AI Model Lister</button>
+                <button class="side-item" data-view="comparer" onclick="switchView('comparer')">AI Model Comparer</button>
+            </nav>
+            <div class="main-content">
+                <section id="view-lister" class="view active">
+                    <div class="form-group">
+                        <label for="provider">Provider</label>
+                        <select id="provider">
+                            <option value="openai" {% if default_provider == 'openai' %}selected{% endif %}>OpenAI Compatible (OpenAI, Groq, Together...)</option>
+                            <option value="openrouter" {% if default_provider == 'openrouter' %}selected{% endif %}>OpenRouter</option>
+                            <option value="azure" {% if default_provider == 'azure' %}selected{% endif %}>Azure OpenAI</option>
+                            <option value="ollama" {% if default_provider == 'ollama' %}selected{% endif %}>Ollama (local)</option>
+                            <option value="deepseek" {% if default_provider == 'deepseek' %}selected{% endif %}>DeepSeek</option>
+                            <option value="mistral" {% if default_provider == 'mistral' %}selected{% endif %}>Mistral</option>
+                            <option value="groq" {% if default_provider == 'groq' %}selected{% endif %}>Groq</option>
+                            <option value="together" {% if default_provider == 'together' %}selected{% endif %}>Together</option>
+                            <option value="xai" {% if default_provider == 'xai' %}selected{% endif %}>xAI Grok</option>
+                            <option value="gemini" {% if default_provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
+                            <option value="claude" {% if default_provider == 'claude' %}selected{% endif %}>Anthropic Claude</option>
+                            <option value="nvidia" {% if default_provider == 'nvidia' %}selected{% endif %}>NVIDIA NIM</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                        <input type="text" id="base_url" value="{{ default_base_url }}">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="api_key">API Key</label>
+                            <input type="text" id="api_key" autocomplete="off">
+                        </div>
+                        <div class="form-group narrow">
+                            <label for="timeout">Timeout (s)</label>
+                            <input type="text" id="timeout" value="180">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="headers">Extra Headers <span style="font-weight:400;color:var(--dim)">(optional JSON object)</span></label>
+                        <input type="text" id="headers" placeholder='{"HTTP-Referer": "https://example.com"}'>
+                    </div>
+
+                    <button onclick="listModels()">List Models</button>
+
+                    <div id="result"></div>
+
+                    <div class="note">
+                        Your API key is only used for requests and never stored. Other settings are
+                        remembered in this browser's localStorage. Press <code>Ctrl+Enter</code> to run a test.
+                    </div>
+                </section>
+
+                <section id="view-comparer" class="view">
+                    <div class="compare-panel">
+                        <h2>Compare two providers</h2>
+                        <p>Fetch model lists for two providers and see which models exist in both, only Provider A, or only Provider B. Matching is by exact model ID.</p>
+
+                        <div class="provider-grid">
+                            <div class="provider-card">
+                                <h3>Provider A</h3>
+                                <div class="form-group">
+                                    <label for="compare-a-provider">Provider</label>
+                                    <select id="compare-a-provider"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="compare-a-base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                                    <input type="text" id="compare-a-base_url">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="compare-a-api_key">API Key</label>
+                                        <input type="text" id="compare-a-api_key" autocomplete="off">
+                                    </div>
+                                    <div class="form-group narrow">
+                                        <label for="compare-a-timeout">Timeout (s)</label>
+                                        <input type="text" id="compare-a-timeout" value="180">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="compare-a-headers">Extra Headers <span style="font-weight:400;color:var(--dim)">(optional JSON object)</span></label>
+                                    <input type="text" id="compare-a-headers" placeholder='{"HTTP-Referer": "https://example.com"}'>
+                                </div>
+                            </div>
+
+                            <div class="provider-card">
+                                <h3>Provider B</h3>
+                                <div class="form-group">
+                                    <label for="compare-b-provider">Provider</label>
+                                    <select id="compare-b-provider"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="compare-b-base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                                    <input type="text" id="compare-b-base_url">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="compare-b-api_key">API Key</label>
+                                        <input type="text" id="compare-b-api_key" autocomplete="off">
+                                    </div>
+                                    <div class="form-group narrow">
+                                        <label for="compare-b-timeout">Timeout (s)</label>
+                                        <input type="text" id="compare-b-timeout" value="180">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="compare-b-headers">Extra Headers <span style="font-weight:400;color:var(--dim)">(optional JSON object)</span></label>
+                                    <input type="text" id="compare-b-headers" placeholder='{"HTTP-Referer": "https://example.com"}'>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn-blue" onclick="compareProviders()">Compare Providers</button>
+                        <div class="prompt-bar" style="margin-top:10px">
+                            <input type="text" id="compare-search" placeholder="Search comparison models..." oninput="filterCompareModels()">
+                        </div>
+                        <div id="compare-result"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing modal -->
+    <div class="modal-overlay" id="pricing-modal" onclick="if(event.target===this)closePricing()">
+        <div class="modal">
+            <h3>Per-model pricing (USD per 1M tokens)</h3>
+            <p style="font-size:12px;color:var(--muted);">Overrides take precedence over built-in defaults. Prices are rough estimates for cost comparison only.</p>
+            <table>
+                <thead><tr><th>Model ID (or substring)</th><th>Input $/1M</th><th>Output $/1M</th></tr></thead>
+                <tbody id="pricing-body"></tbody>
+            </table>
+            <div class="modal-actions">
+                <button class="btn-orange" onclick="addPricingRow()">+ Add model</button>
+                <button class="btn-blue" onclick="savePricing()">Save</button>
+                <button class="icon-btn" onclick="closePricing()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_PROVIDER = {{ default_provider | tojson }};
+        let currentApiKey = '';
+        let currentBaseUrl = '';
+        let currentProvider = DEFAULT_PROVIDER;
+        let currentHeaders = {};
+        let currentTimeout = 180;
+        let currentModels = [];   // [{id, meta}]
+        let batchAbort = false;
+        let batchRunning = false;
+        let testResults = [];     // [{model, status, response, time, ttft, usage}]
+        let pendingSettings = null;
+        let sortState = { key: null, dir: 1 };
+
+        const SETTINGS_KEY = 'model-lister:settings';
+        const PROMPTS_KEY = 'model-lister:prompts';
+        const THEME_KEY = 'model-lister:theme';
+        const PRICING_KEY = 'model-lister:pricing-overrides';
+
+        const PROVIDER_DEFAULTS = {
+            openai: {{ default_base_url | tojson }},
+            openrouter: 'https://openrouter.ai/api/v1',
+            azure: '',
+            ollama: 'http://localhost:11434/v1',
+            deepseek: 'https://api.deepseek.com/v1',
+            mistral: 'https://api.mistral.ai/v1',
+            groq: 'https://api.groq.com/openai/v1',
+            together: 'https://api.together.xyz/v1',
+            xai: 'https://api.x.ai/v1',
+            gemini: 'https://generativelanguage.googleapis.com/v1beta',
+            claude: 'https://api.anthropic.com/v1',
+            nvidia: 'https://integrate.api.nvidia.com/v1'
+        };
+
+        const KEY_PLACEHOLDERS = {
+            openai: 'sk-... (API key)',
+            openrouter: 'sk-or-... (OpenRouter key)',
+            azure: 'Azure API key',
+            ollama: '(not required for local Ollama)',
+            deepseek: 'sk-... (DeepSeek key)',
+            mistral: '... (Mistral key)',
+            groq: 'gsk_... (Groq key)',
+            together: '... (Together key)',
+            xai: 'xai-... (xAI API key)',
+            gemini: 'AIzaSy... (Gemini API key)',
+            claude: 'sk-ant-... (Anthropic API key)',
+            nvidia: 'nvapi-... (NVIDIA API key)'
+        };
+
+        const PROVIDER_LABELS = {
+            openai: 'OpenAI Compatible',
+            openrouter: 'OpenRouter',
+            azure: 'Azure OpenAI',
+            ollama: 'Ollama (local)',
+            deepseek: 'DeepSeek',
+            mistral: 'Mistral',
+            groq: 'Groq',
+            together: 'Together',
+            xai: 'xAI Grok',
+            gemini: 'Google Gemini',
+            claude: 'Anthropic Claude',
+            nvidia: 'NVIDIA NIM'
+        };
+
+        // Built-in price estimates (USD per 1M tokens), matched by substring on the model id.
+        const PRICING_DEFAULTS = {
+            'gpt-4o-mini': { in: 0.15, out: 0.60 },
+            'gpt-4o': { in: 2.50, out: 10.0 },
+            'gpt-4.1-mini': { in: 0.40, out: 1.60 },
+            'gpt-4.1-nano': { in: 0.10, out: 0.40 },
+            'gpt-4.1': { in: 2.00, out: 8.00 },
+            'gpt-4.5': { in: 5.00, out: 15.0 },
+            'o3-mini': { in: 1.10, out: 4.40 },
+            'o4-mini': { in: 1.10, out: 4.40 },
+            'o3': { in: 10.0, out: 40.0 },
+            'o1': { in: 15.0, out: 60.0 },
+            'claude-opus': { in: 15.0, out: 75.0 },
+            'claude-sonnet': { in: 3.00, out: 15.0 },
+            'claude-3-5-sonnet': { in: 3.00, out: 15.0 },
+            'claude-3-5-haiku': { in: 0.80, out: 4.00 },
+            'claude-haiku': { in: 0.80, out: 4.00 },
+            'gemini-2.5-pro': { in: 1.25, out: 10.0 },
+            'gemini-2.5-flash': { in: 0.075, out: 0.30 },
+            'gemini-2.0-flash': { in: 0.10, out: 0.40 },
+            'gemini-1.5-pro': { in: 1.25, out: 5.00 },
+            'gemini-1.5-flash': { in: 0.075, out: 0.30 },
+            'grok-3': { in: 3.00, out: 15.0 },
+            'grok-2': { in: 2.00, out: 10.0 },
+            'deepseek-reasoner': { in: 0.55, out: 2.19 },
+            'deepseek-chat': { in: 0.27, out: 1.10 },
+            'mistral-large': { in: 2.00, out: 6.00 },
+            'mistral-small': { in: 0.20, out: 0.60 },
+            'llama-3.3-70b': { in: 0.59, out: 0.79 }
+        };
+
+        const COMPARE_SETTINGS_KEY = 'model-lister:compare-settings';
+
+        function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+        function esc(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function preview(s) {
+            return String(s).replace(/\n/g, ' ').substring(0, 150);
+        }
+
+        function toast(msg, type = 'info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast toast-${type}`;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => { t.classList.add('toast-hide'); setTimeout(() => t.remove(), 300); }, 2800);
+        }
+
+        async function copyModelText(text, btn) {
+            if (!text) return;
+            try { await navigator.clipboard.writeText(text); }
+            catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e2) {}
+                ta.remove();
+            }
+            if (btn) {
+                btn.classList.add('copied');
+                setTimeout(() => btn.classList.remove('copied'), 1000);
+            }
+        }
+
+        /* ---------- pricing ---------- */
+
+        function getPricingOverrides() {
+            try { return JSON.parse(localStorage.getItem(PRICING_KEY) || '{}') || {}; }
+            catch (e) { return {}; }
+        }
+
+        function getPrice(model) {
+            const overrides = getPricingOverrides();
+            if (overrides[model]) return overrides[model];
+            const id = model.toLowerCase();
+            for (const [key, val] of Object.entries(PRICING_DEFAULTS)) {
+                if (id.includes(key)) return val;
+            }
+            return null;
+        }
+
+        function computeCost(model, usage) {
+            const p = getPrice(model);
+            if (!p || !usage) return null;
+            const prompt = usage.prompt || 0;
+            const completion = usage.completion || 0;
+            return (prompt * p.in + completion * p.out) / 1e6;
+        }
+
+        function openPricing() {
+            renderPricingRows();
+            document.getElementById('pricing-modal').classList.add('open');
+        }
+
+        function closePricing() {
+            document.getElementById('pricing-modal').classList.remove('open');
+        }
+
+        function renderPricingRows() {
+            const body = document.getElementById('pricing-body');
+            const overrides = getPricingOverrides();
+            let html = '';
+            Object.entries(overrides).forEach(([id, p]) => {
+                html += pricingRowHtml(id, p.in, p.out);
+            });
+            if (!Object.keys(overrides).length) {
+                html = '<tr><td colspan="3" style="color:var(--muted)">No overrides yet. Built-in defaults are used for known models.</td></tr>';
+            }
+            body.innerHTML = html;
+        }
+
+        function pricingRowHtml(id, inPrice, outPrice) {
+            return `<tr>
+                <td><input type="text" class="price-model" value="${esc(id)}" placeholder="model id or substring"></td>
+                <td><input type="text" class="price-in price-input" value="${esc(inPrice ?? '')}" placeholder="0.00"></td>
+                <td><input type="text" class="price-out price-input" value="${esc(outPrice ?? '')}" placeholder="0.00"></td>
+            </tr>`;
+        }
+
+        function addPricingRow() {
+            const body = document.getElementById('pricing-body');
+            if (body.querySelector('td[colspan]')) body.innerHTML = '';
+            body.insertAdjacentHTML('beforeend', pricingRowHtml('', '', ''));
+        }
+
+        function savePricing() {
+            const overrides = {};
+            document.querySelectorAll('#pricing-body tr').forEach(row => {
+                const id = row.querySelector('.price-model')?.value.trim();
+                const inP = parseFloat(row.querySelector('.price-in')?.value);
+                const outP = parseFloat(row.querySelector('.price-out')?.value);
+                if (id && !isNaN(inP) && !isNaN(outP)) overrides[id] = { in: inP, out: outP };
+            });
+            try { localStorage.setItem(PRICING_KEY, JSON.stringify(overrides)); } catch (e) {}
+            closePricing();
+            toast('Pricing saved.', 'success');
+            renderBatchSummary();
+        }
+
+        /* ---------- theme ---------- */
+
+        function setTheme(theme) {
+            document.body.classList.toggle('light', theme === 'light');
+            document.getElementById('theme-btn').textContent = theme === 'light' ? '☀' : '🌙';
+            try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+        }
+
+        function toggleTheme() {
+            setTheme(document.body.classList.contains('light') ? 'dark' : 'light');
+        }
+
+        function loadTheme() {
+            let theme = 'dark';
+            try { theme = localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) {}
+            setTheme(theme);
+        }
+
+        /* ---------- placeholders / settings ---------- */
+
+        function updatePlaceholders() {
+            const provider = document.getElementById('provider').value;
+            const def = PROVIDER_DEFAULTS[provider] || '';
+            const baseUrlInput = document.getElementById('base_url');
+            baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. https://YOUR-RESOURCE.openai.azure.com/openai/v1)';
+            document.getElementById('api_key').placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
+        }
+
+        function updateProviderUI() {
+            updatePlaceholders();
+            document.getElementById('base_url').value = PROVIDER_DEFAULTS[document.getElementById('provider').value] || '';
+        }
+
+        function getTimeoutInput() {
+            return parseInt(document.getElementById('timeout').value) || 180;
+        }
+
+        function getGenParams() {
+            const maxTok = parseInt(document.getElementById('batch-max-tokens')?.value) || 300;
+            const tempRaw = document.getElementById('batch-temperature')?.value;
+            const temp = tempRaw === '' || tempRaw == null ? 0.7 : parseFloat(tempRaw);
+            const system = (document.getElementById('batch-system')?.value || '').trim();
+            return { max_tokens: maxTok, temperature: isNaN(temp) ? 0.7 : temp, system };
+        }
+
+        function parseHeadersString(raw) {
+            if (!raw) return {};
+            try {
+                const obj = JSON.parse(raw);
+                if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw new Error('not an object');
+                return obj;
+            } catch (e) {
+                return null; // invalid
+            }
+        }
+
+        function parseHeadersInput() {
+            return parseHeadersString(document.getElementById('headers').value.trim());
+        }
+
+        function saveSettings() {
+            try {
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+                    provider: document.getElementById('provider').value,
+                    base_url: document.getElementById('base_url').value.trim(),
+                    timeout: document.getElementById('timeout').value,
+                    headers: document.getElementById('headers').value,
+                    delay: document.getElementById('batch-delay')?.value,
+                    concurrency: document.getElementById('batch-concurrency')?.value,
+                    prompt: document.getElementById('batch-prompt')?.value,
+                    max_tokens: document.getElementById('batch-max-tokens')?.value,
+                    temperature: document.getElementById('batch-temperature')?.value,
+                    system: document.getElementById('batch-system')?.value,
+                    stream: document.getElementById('batch-stream')?.checked,
+                    advanced: document.getElementById('advanced-row')?.classList.contains('open')
+                }));
+            } catch (e) { /* storage unavailable */ }
+        }
+
+        function loadSettings() {
+            let s;
+            try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); } catch (e) { return; }
+            document.getElementById('provider').value = DEFAULT_PROVIDER;
+            if (s) {
+                if (typeof s.base_url === 'string') {
+                    if (s.base_url === 'http://jye.myvnc.com:7822/v1' || s.base_url === 'https://api.openai.com/v1') {
+                        document.getElementById('base_url').value = PROVIDER_DEFAULTS[DEFAULT_PROVIDER] || '';
+                    } else {
+                        document.getElementById('base_url').value = s.base_url;
+                    }
+                }
+                if (s.timeout) document.getElementById('timeout').value = s.timeout;
+                if (typeof s.headers === 'string') document.getElementById('headers').value = s.headers;
+                if (s.delay || s.concurrency || s.prompt || s.max_tokens || s.temperature || s.system != null || s.stream != null || s.advanced) pendingSettings = s;
+            }
+            if (!document.getElementById('base_url').value) {
+                document.getElementById('base_url').value = PROVIDER_DEFAULTS[DEFAULT_PROVIDER] || '';
+            }
+        }
+
+        /* ---------- prompt presets ---------- */
+
+        function getPresets() {
+            try { return JSON.parse(localStorage.getItem(PROMPTS_KEY) || '{}'); } catch (e) { return {}; }
+        }
+
+        function renderPresetOptions() {
+            const sel = document.getElementById('prompt-preset');
+            if (!sel) return;
+            const names = Object.keys(getPresets());
+            sel.innerHTML = '<option value="">Presets…</option>' +
+                names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+        }
+
+        function applyPreset(sel) {
+            const presets = getPresets();
+            if (presets[sel.value]) document.getElementById('batch-prompt').value = presets[sel.value];
+            sel.value = '';
+        }
+
+        function savePromptPreset() {
+            const text = document.getElementById('batch-prompt').value.trim();
+            if (!text) { toast('Enter a prompt first.', 'info'); return; }
+            const name = window.prompt('Preset name:');
+            if (!name) return;
+            const presets = getPresets();
+            presets[name] = text;
+            try { localStorage.setItem(PROMPTS_KEY, JSON.stringify(presets)); } catch (e) {}
+            renderPresetOptions();
+        }
+
+        /* ---------- checked-model persistence ---------- */
+
+        function checkedKey() {
+            return `model-lister:checked:${currentProvider}:${currentBaseUrl || PROVIDER_DEFAULTS[currentProvider] || 'default'}`;
+        }
+
+        function saveChecked() {
+            const ids = [...document.querySelectorAll('.model-check:checked')]
+                .map(cb => currentModels[parseInt(cb.dataset.idx)]?.id)
+                .filter(Boolean);
+            try { localStorage.setItem(checkedKey(), JSON.stringify(ids)); } catch (e) {}
+        }
+
+        function restoreChecked() {
+            let ids;
+            try { ids = new Set(JSON.parse(localStorage.getItem(checkedKey()) || '[]')); } catch (e) { return; }
+            const selectAll = document.getElementById('select-all');
+            document.querySelectorAll('.model-check').forEach(cb => {
+                const idx = parseInt(cb.dataset.idx);
+                cb.checked = ids.has(currentModels[idx]?.id);
+            });
+            if (selectAll) selectAll.checked = false;
+        }
+
+        /* ---------- listing models ---------- */
+
+        async function listModels() {
+            const provider = document.getElementById('provider').value;
+            const baseUrl = document.getElementById('base_url').value.trim();
+            const apiKey = document.getElementById('api_key').value.trim();
+            const headers = parseHeadersInput();
+            const resultDiv = document.getElementById('result');
+
+            if (headers === null) {
+                resultDiv.innerHTML = '<div class="error">Headers must be a JSON object, e.g. {"HTTP-Referer": "https://example.com"}</div>';
+                return;
+            }
+            if (!apiKey && provider !== 'ollama') {
+                resultDiv.innerHTML = '<div class="error">Please enter an API key</div>';
+                return;
+            }
+            if (!baseUrl && provider === 'azure') {
+                resultDiv.innerHTML = '<div class="error">Azure requires a base URL, e.g. https://YOUR-RESOURCE.openai.azure.com/openai/v1</div>';
+                return;
+            }
+
+            saveSettings();
+            currentApiKey = apiKey;
+            currentBaseUrl = baseUrl;
+            currentProvider = provider;
+            currentHeaders = headers;
+            currentTimeout = getTimeoutInput();
+
+            resultDiv.innerHTML = '<p>Loading models...</p>';
+
+            try {
+                const res = await fetch('/list-models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        api_key: apiKey,
+                        base_url: baseUrl,
+                        provider: provider,
+                        headers: headers,
+                        timeout: currentTimeout
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    resultDiv.innerHTML = `<div class="error">${esc(data.error || 'Request failed')}</div>`;
+                    return;
+                }
+
+                currentModels = data.models.map(m => typeof m === 'string' ? { id: m, meta: {} } : m);
+                renderModelList(currentModels, data.count);
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error">Network error: ${esc(err.message)}</div>`;
+            }
+        }
+
+        function renderModelList(models, count) {
+            const resultDiv = document.getElementById('result');
+
+            let html = `<div class="count">${count} models found</div>`;
+
+            // Prompt bar
+            html += `<div class="prompt-bar">
+                <select id="prompt-preset" onchange="applyPreset(this)">
+                    <option value="">Presets…</option>
+                </select>
+                <input type="text" id="batch-prompt" value="Hi" placeholder="Enter test prompt...">
+                <button class="btn-blue" onclick="savePromptPreset()">Save Preset</button>
+                <div class="duration-group">
+                    <label for="batch-delay">Wait</label>
+                    <input type="text" id="batch-delay" value="5">
+                    <span>sec</span>
+                </div>
+                <div class="duration-group">
+                    <label for="batch-concurrency">Concurrency</label>
+                    <input type="text" id="batch-concurrency" value="1">
+                </div>
+                <label class="duration-group">
+                    <input type="checkbox" id="batch-stream"> Stream (TTFT)
+                </label>
+                <button class="advanced-toggle" id="advanced-toggle" onclick="toggleAdvanced()">Advanced ▾</button>
+            </div>`;
+
+            // Advanced (generation params)
+            html += `<div class="advanced-row" id="advanced-row">
+                <div class="form-group">
+                    <label for="batch-system">System prompt</label>
+                    <input type="text" id="batch-system" placeholder="(optional)">
+                </div>
+                <div class="form-group narrow">
+                    <label for="batch-max-tokens">Max tokens</label>
+                    <input type="text" id="batch-max-tokens" value="300">
+                </div>
+                <div class="form-group narrow">
+                    <label for="batch-temperature">Temperature</label>
+                    <input type="text" id="batch-temperature" value="0.7">
+                </div>
+            </div>`;
+
+            // Toolbar
+            html += `<div class="toolbar">
+                <label><input type="checkbox" id="select-all" onchange="toggleSelectAll()"> Select All</label>
+                <div class="spacer"></div>
+                <button class="btn-blue" onclick="compareSelected()">Compare Selected</button>
+                <button class="btn-green" id="btn-test-selected" onclick="testSelected()">Test Selected</button>
+                <button class="btn-orange" id="btn-retry-failed" onclick="retryFailed()" style="display:none">Retry Failed</button>
+                <button class="btn-blue" id="btn-export-csv" onclick="exportCSV()" style="display:none">Export CSV</button>
+                <button class="btn-blue" id="btn-export-json" onclick="exportJSON()" style="display:none">Export JSON</button>
+                <button class="btn-orange" id="btn-clear-saved" onclick="clearSavedResults()" style="display:none">Clear Saved Results</button>
+                <button class="btn-red" id="btn-stop" onclick="stopBatch()" style="display:none">Stop</button>
+            </div>`;
+
+            // Progress + summary
+            html += `<div id="progress-section" style="display:none">
+                <div class="progress-text" id="progress-text"></div>
+                <div class="progress-bar-container"><div class="progress-bar-fill" id="progress-bar"></div></div>
+            </div>`;
+            html += `<div class="summary-row" id="batch-summary"></div>`;
+
+            // Search bar
+            html += `<div class="prompt-bar">
+                <input type="text" id="model-search" placeholder="Search models..." oninput="filterModels()">
+                <button class="btn-blue" onclick="selectAllFiltered()">Select All Filtered</button>
+            </div>`;
+
+            // Model list
+            html += '<div class="models">';
+            html += `<div class="model-header">
+                <div class="col-check"></div>
+                <div class="col-model sortable" onclick="sortRows('model')" title="Sort by name">Model ↕</div>
+                <div class="col-response sortable" onclick="sortRows('response')" title="Sort by status">Response ↕</div>
+                <div class="col-time sortable" onclick="sortRows('time')" title="Sort by time">Time ↕</div>
+            </div>`;
+            models.forEach((m, idx) => {
+                const metaHtml = metaBitsHtml(m.meta);
+                html += `<div class="model-row" id="row-${idx}" data-time="" data-status="">
+                    <div class="col-check"><input type="checkbox" class="model-check" data-idx="${idx}" onchange="saveChecked()"></div>
+                    <div class="col-model"><span class="model-name" onclick="selectModel(${idx})">${esc(m.id)}</span><button class="copy-btn" data-model="${esc(m.id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaHtml}</div>
+                    <div class="col-response" id="result-${idx}" onclick="toggleExpand(${idx})" style="cursor:pointer" title="Click to view full response"></div>
+                    <div class="col-time" id="time-${idx}"></div>
+                </div>`;
+            });
+            html += '</div>';
+
+            resultDiv.innerHTML = html;
+
+            if (pendingSettings) {
+                if (pendingSettings.delay) document.getElementById('batch-delay').value = pendingSettings.delay;
+                if (pendingSettings.concurrency) document.getElementById('batch-concurrency').value = pendingSettings.concurrency;
+                if (pendingSettings.prompt) document.getElementById('batch-prompt').value = pendingSettings.prompt;
+                if (pendingSettings.max_tokens) document.getElementById('batch-max-tokens').value = pendingSettings.max_tokens;
+                if (pendingSettings.temperature != null) document.getElementById('batch-temperature').value = pendingSettings.temperature;
+                if (pendingSettings.system != null) document.getElementById('batch-system').value = pendingSettings.system;
+                if (pendingSettings.stream) document.getElementById('batch-stream').checked = true;
+                if (pendingSettings.advanced) document.getElementById('advanced-row').classList.add('open');
+                pendingSettings = null;
+            }
+
+            renderPresetOptions();
+            testResults = loadSavedResults();
+            applySavedResults();
+            restoreChecked();
+            updateExportButtons();
+            updateRetryButton();
+            renderBatchSummary();
+        }
+
+        function metaBitsHtml(meta) {
+            meta = meta || {};
+            const bits = [];
+            if (meta.display_name) bits.push(esc(meta.display_name));
+            if (meta.context) bits.push(esc(meta.context));
+            if (meta.owned_by) bits.push('by ' + esc(meta.owned_by));
+            if (meta.created) bits.push(esc(meta.created));
+            if (meta.created_at) bits.push(esc(meta.created_at));
+            return bits.length ? `<div class="model-meta">${bits.join(' · ')}</div>` : '';
+        }
+
+        function toggleAdvanced() {
+            const row = document.getElementById('advanced-row');
+            row.classList.toggle('open');
+            saveSettings();
+        }
+
+        function toggleSelectAll() {
+            const checked = document.getElementById('select-all').checked;
+            visibleRows().forEach(row => {
+                const cb = row.querySelector('.model-check');
+                if (cb) cb.checked = checked;
+            });
+            saveChecked();
+        }
+
+        function visibleRows() {
+            const query = document.getElementById('model-search').value.trim().toLowerCase();
+            const rows = [...document.querySelectorAll('.model-row')];
+            return query
+                ? rows.filter(r => r.querySelector('.model-name').textContent.toLowerCase().includes(query))
+                : rows;
+        }
+
+        function filterModels() {
+            const query = document.getElementById('model-search').value.trim().toLowerCase();
+            let visible = 0;
+            document.querySelectorAll('.model-row').forEach(r => {
+                const show = !query || r.querySelector('.model-name').textContent.toLowerCase().includes(query);
+                r.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            const countEl = document.querySelector('.count');
+            if (countEl) countEl.textContent = `${currentModels.length} models found — ${visible} match`;
+        }
+
+        function selectAllFiltered() {
+            visibleRows().forEach(r => r.querySelector('.model-check').checked = true);
+            saveChecked();
+        }
+
+        function getSelectedModels() {
+            const selected = [];
+            document.querySelectorAll('.model-check:checked').forEach(cb => {
+                const idx = parseInt(cb.dataset.idx);
+                selected.push({ model: currentModels[idx].id, idx });
+            });
+            return selected;
+        }
+
+        /* ---------- sorting ---------- */
+
+        function statusOrder(s) {
+            return s === 'success' ? 0 : s === 'error' ? 1 : 2;
+        }
+
+        function sortRows(key) {
+            if (sortState.key === key) sortState.dir = -sortState.dir;
+            else { sortState.key = key; sortState.dir = 1; }
+            const list = document.querySelector('.models');
+            if (!list) return;
+            const rows = [...list.querySelectorAll('.model-row')];
+            rows.sort((a, b) => {
+                let r = 0;
+                if (key === 'model') {
+                    r = a.querySelector('.model-name').textContent.localeCompare(b.querySelector('.model-name').textContent);
+                } else if (key === 'time') {
+                    r = (parseFloat(a.dataset.time) || Infinity) - (parseFloat(b.dataset.time) || Infinity);
+                } else {
+                    r = statusOrder(a.dataset.status) - statusOrder(b.dataset.status)
+                        || a.querySelector('.col-response').textContent.localeCompare(b.querySelector('.col-response').textContent);
+                }
+                return r * sortState.dir;
+            });
+            rows.forEach(row => list.appendChild(row));
+        }
+
+        /* ---------- batch testing ---------- */
+
+        function setBatchUI(running) {
+            batchRunning = running;
+            const btnTestSel = document.getElementById('btn-test-selected');
+            const btnStop = document.getElementById('btn-stop');
+            const progressSection = document.getElementById('progress-section');
+
+            if (running) {
+                btnTestSel.disabled = true;
+                btnStop.style.display = '';
+                progressSection.style.display = '';
+                document.getElementById('progress-bar').style.width = '0%';
+            } else {
+                btnTestSel.disabled = false;
+                btnStop.style.display = 'none';
+            }
+        }
+
+        function stopBatch() {
+            batchAbort = true;
+        }
+
+        async function testSelected() {
+            const selected = getSelectedModels();
+            if (selected.length === 0) {
+                toast('Select at least one model.', 'info');
+                return;
+            }
+            await runBatchTest(selected);
+        }
+
+        async function retryFailed() {
+            const failed = testResults
+                .filter(t => t.status === 'error')
+                .map(t => ({ model: t.model, idx: currentModels.findIndex(m => m.id === t.model) }))
+                .filter(t => t.idx >= 0);
+            if (!failed.length) { toast('No failed models to retry.', 'info'); return; }
+            await runBatchTest(failed);
+        }
+
+        async function runBatchTest(models) {
+            const prompt = document.getElementById('batch-prompt').value.trim();
+            const delaySeconds = Math.max(0, parseInt(document.getElementById('batch-delay').value) || 5);
+            const concurrency = Math.max(1, Math.min(10, parseInt(document.getElementById('batch-concurrency').value) || 1));
+            const stream = document.getElementById('batch-stream').checked;
+            const params = getGenParams();
+            if (!prompt) { toast('Enter a test prompt.', 'info'); return; }
+            saveSettings();
+
+            batchAbort = false;
+            setBatchUI(true);
+
+            const total = models.length;
+            const progressText = document.getElementById('progress-text');
+            const progressBar = document.getElementById('progress-bar');
+            let done = 0;
+            let next = 0;
+
+            models.forEach(({ idx }) => {
+                const el = document.getElementById(`result-${idx}`);
+                if (el) { el.textContent = '⏳ pending'; el.className = 'col-response pending'; }
+                const timeEl = document.getElementById(`time-${idx}`);
+                if (timeEl) { timeEl.textContent = ''; timeEl.className = 'col-time'; }
+                const row = document.getElementById(`row-${idx}`);
+                if (row) { row.dataset.time = ''; row.dataset.status = ''; }
+            });
+
+            async function worker() {
+                while (!batchAbort) {
+                    const i = next++;
+                    if (i >= total) break;
+                    const item = models[i];
+                    progressText.textContent = `Testing ${done + 1} / ${total}: ${item.model}`;
+                    await testOne(item, prompt, params, stream);
+                    done++;
+                    progressBar.style.width = `${(done / total) * 100}%`;
+                    if (i < total - 1 && !batchAbort && delaySeconds > 0) {
+                        progressText.textContent = `Tested ${done} / ${total} — waiting ${delaySeconds}s...`;
+                        await sleep(delaySeconds * 1000);
+                    }
+                }
+            }
+
+            await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+            progressText.textContent = batchAbort
+                ? `Stopped — ${done} / ${total} tested`
+                : `Done — ${done} / ${total} tested`;
+            setBatchUI(false);
+            saveResults();
+            saveChecked();
+            updateExportButtons();
+            updateRetryButton();
+            renderBatchSummary();
+        }
+
+        async function testOne(item, prompt, params, stream) {
+            if (stream) return streamTestOne(item, prompt, params);
+            return jsonTestOne(item, prompt, params);
+        }
+
+        async function jsonTestOne({ model, idx }, prompt, params) {
+            const el = document.getElementById(`result-${idx}`);
+            const timeEl = document.getElementById(`time-${idx}`);
+            el.textContent = '⏳ running...';
+            el.className = 'col-response running';
+            timeEl.textContent = '...';
+            timeEl.className = 'col-time';
+
+            const startTime = performance.now();
+            let result;
+            try {
+                const res = await fetch('/test-model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        api_key: currentApiKey,
+                        base_url: currentBaseUrl,
+                        provider: currentProvider,
+                        headers: currentHeaders,
+                        timeout: currentTimeout,
+                        model: model,
+                        prompt: prompt,
+                        stream: false,
+                        ...params
+                    })
+                });
+
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    result = { model, status: 'error', response: data.error || 'Failed', time: elapsed, ttft: null, usage: null };
+                } else {
+                    result = { model, status: 'success', response: data.response || '', time: elapsed, ttft: data.ttft, usage: data.usage || null };
+                }
+            } catch (err) {
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                result = { model, status: 'error', response: `Network error: ${err.message}`, time: elapsed, ttft: null, usage: null };
+            }
+
+            record(result);
+            showResult(idx, result);
+            saveResults();
+        }
+
+        async function streamTestOne({ model, idx }, prompt, params) {
+            const el = document.getElementById(`result-${idx}`);
+            const timeEl = document.getElementById(`time-${idx}`);
+            el.textContent = '⏳ streaming...';
+            el.className = 'col-response running';
+            timeEl.textContent = '...';
+            timeEl.className = 'col-time';
+
+            const startTime = performance.now();
+            let text = '', ttft = null, usage = null, errMsg = null;
+
+            try {
+                const res = await fetch('/test-model-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        api_key: currentApiKey,
+                        base_url: currentBaseUrl,
+                        provider: currentProvider,
+                        headers: currentHeaders,
+                        timeout: currentTimeout,
+                        model: model,
+                        prompt: prompt,
+                        ...params
+                    })
+                });
+
+                if (!res.ok) {
+                    let msg = 'Request failed';
+                    try { const d = await res.json(); msg = d.error || msg; } catch (e) {}
+                    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                    const result = { model, status: 'error', response: msg, time: elapsed, ttft: null, usage: null };
+                    record(result); showResult(idx, result); saveResults();
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    let nl;
+                    while ((nl = buffer.indexOf('\n')) >= 0) {
+                        const line = buffer.slice(0, nl);
+                        buffer = buffer.slice(nl + 1);
+                        if (!line.startsWith('data:')) continue;
+                        const payload = line.slice(5).trim();
+                        if (!payload || payload === '[DONE]') continue;
+                        let ev;
+                        try { ev = JSON.parse(payload); } catch (e) { continue; }
+                        if (ev.type === 'delta') {
+                            text += ev.text;
+                            el.innerHTML = `✅ ${esc(preview(text))}${text.length > 150 ? '...' : ''}`;
+                            el.className = 'col-response success';
+                        } else if (ev.type === 'ttft') {
+                            ttft = ev.ttft;
+                            timeEl.textContent = `${ttft.toFixed(1)}s / ...`;
+                            timeEl.className = 'col-time running';
+                        } else if (ev.type === 'usage') {
+                            usage = { ...(usage || {}), ...ev.usage };
+                        } else if (ev.type === 'retry') {
+                            toast(`${model}: retrying without ${ev.field} (model rejected it)`, 'info');
+                        } else if (ev.type === 'error') {
+                            errMsg = ev.error || 'Stream error';
+                        }
+                    }
+                }
+            } catch (err) {
+                errMsg = `Network error: ${err.message}`;
+            }
+
+            const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+            const status = errMsg ? 'error' : 'success';
+            const result = {
+                model, status,
+                response: errMsg || text,
+                time: elapsed, ttft, usage
+            };
+            record(result);
+            showResult(idx, result);
+            saveResults();
+        }
+
+        function record(r) {
+            const i = testResults.findIndex(t => t.model === r.model);
+            if (i >= 0) testResults[i] = r;
+            else testResults.push(r);
+        }
+
+        function resultMetaHtml(r) {
+            if (!r.usage) return '';
+            const u = r.usage;
+            const cost = computeCost(r.model, r.usage);
+            const costStr = cost != null ? ` · $${cost.toFixed(4)}` : '';
+            return `<div class="row-meta">${u.prompt || 0} in / ${u.completion || 0} out tok${costStr}</div>`;
+        }
+
+        function showResult(idx, r) {
+            const el = document.getElementById(`result-${idx}`);
+            const timeEl = document.getElementById(`time-${idx}`);
+            const row = document.getElementById(`row-${idx}`);
+            if (!el) return;
+            if (r.status === 'success') {
+                const full = r.response || '';
+                const prev = preview(full);
+                const meta = resultMetaHtml(r);
+                el.innerHTML = `✅ ${esc(prev)}${full.length > 150 ? '...' : ''}${meta}`;
+                el.className = 'col-response success';
+            } else {
+                el.innerHTML = `❌ ${esc(r.response || 'Failed')}`;
+                el.className = 'col-response error';
+            }
+            const ttft = r.ttft != null ? `${Number(r.ttft).toFixed(1)}s / ` : '';
+            const tok = r.usage && r.usage.completion ? ` · ${r.usage.completion} tok` : '';
+            timeEl.innerHTML = `${ttft}${r.time}s${tok}`;
+            timeEl.className = `col-time ${r.status === 'success' ? 'success' : 'error'}`;
+            if (row) { row.dataset.time = r.time; row.dataset.status = r.status; }
+            // Refresh an open expand panel for this row
+            const expand = row && row.nextElementSibling;
+            if (expand && expand.classList.contains('row-expand')) {
+                row.nextElementSibling.remove();
+                toggleExpand(idx);
+            }
+            updateRetryButton();
+        }
+
+        function toggleExpand(idx) {
+            const row = document.getElementById(`row-${idx}`);
+            if (!row) return;
+            const existing = row.nextElementSibling;
+            if (existing && existing.classList.contains('row-expand')) {
+                existing.remove();
+                return;
+            }
+            const m = currentModels[idx];
+            const r = testResults.find(t => t.model === m.id);
+            const ttft = r && r.ttft != null ? `${Number(r.ttft).toFixed(1)}s` : '—';
+            const usage = r && r.usage ? `${r.usage.prompt || 0} in / ${r.usage.completion || 0} out` : '—';
+            const cost = r ? computeCost(r.model, r.usage) : null;
+            const costStr = cost != null ? ` · Cost: $${cost.toFixed(4)}` : '';
+            const price = getPrice(m.id);
+            const priceStr = price ? ` · Rate: $${price.in}/$${price.out} per 1M` : '';
+            const div = document.createElement('div');
+            div.className = 'row-expand';
+            div.innerHTML = `
+                <div class="expand-model">${esc(m.id)}</div>
+                <div class="expand-stats">TTFT: ${ttft} · Time: ${r ? r.time + 's' : '—'} · Tokens: ${usage}${costStr}${priceStr}</div>
+                <div class="expand-body">${esc(r ? (r.response || '(no result)') : '(no result)')}</div>`;
+            row.after(div);
+        }
+
+        /* ---------- batch summary ---------- */
+
+        function renderBatchSummary() {
+            const el = document.getElementById('batch-summary');
+            if (!el) return;
+            if (!testResults.length) { el.innerHTML = ''; return; }
+            const ok = testResults.filter(r => r.status === 'success');
+            const fail = testResults.filter(r => r.status === 'error');
+            const times = ok.map(r => parseFloat(r.time) || 0).filter(Boolean);
+            const minT = times.length ? Math.min(...times) : 0;
+            const maxT = times.length ? Math.max(...times) : 0;
+            const avgT = times.length ? (times.reduce((a, b) => a + b, 0) / times.length) : 0;
+            const tokens = ok.reduce((a, r) => a + ((r.usage && r.usage.completion) || 0), 0);
+            const totSec = times.reduce((a, b) => a + b, 0);
+            const tps = totSec > 0 ? (tokens / totSec) : 0;
+            const cost = ok.reduce((a, r) => a + (computeCost(r.model, r.usage) || 0), 0);
+            const rate = testResults.length ? Math.round(ok.length / testResults.length * 100) : 0;
+            const card = (num, label) => `<div class="summary-card"><div class="num">${num}</div><div class="label">${label}</div></div>`;
+            el.innerHTML =
+                card(`${ok.length}/${testResults.length}`, 'success') +
+                card(`${rate}%`, 'success rate') +
+                card(`${avgT.toFixed(1)}s`, 'avg time') +
+                card(`${minT.toFixed(1)}s`, 'min') +
+                card(`${maxT.toFixed(1)}s`, 'max') +
+                card(tokens.toLocaleString(), 'output tokens') +
+                card(`${tps.toFixed(0)}`, 'tok/s') +
+                (cost > 0 ? card(`$${cost.toFixed(4)}`, 'est. cost') : '');
+        }
+
+        function updateRetryButton() {
+            const el = document.getElementById('btn-retry-failed');
+            if (!el) return;
+            const hasFailed = testResults.some(r => r.status === 'error');
+            el.style.display = hasFailed ? '' : 'none';
+        }
+
+        /* ---------- results persistence ---------- */
+
+        function resultsKey() {
+            return `model-lister:results:${currentProvider}:${currentBaseUrl || PROVIDER_DEFAULTS[currentProvider] || 'default'}`;
+        }
+
+        function saveResults() {
+            try { localStorage.setItem(resultsKey(), JSON.stringify(testResults)); } catch (e) {}
+        }
+
+        function loadSavedResults() {
+            try { return JSON.parse(localStorage.getItem(resultsKey()) || '[]') || []; } catch (e) { return []; }
+        }
+
+        function applySavedResults() {
+            const byModel = new Map(testResults.map(r => [r.model, r]));
+            currentModels.forEach((m, idx) => {
+                const r = byModel.get(m.id);
+                if (r) showResult(idx, r);
+            });
+        }
+
+        function clearSavedResults() {
+            try { localStorage.removeItem(resultsKey()); } catch (e) {}
+            testResults = [];
+            updateExportButtons();
+            updateRetryButton();
+            renderBatchSummary();
+            if (currentModels.length) renderModelList(currentModels, currentModels.length);
+        }
+
+        function updateExportButtons() {
+            const has = testResults.length > 0;
+            ['btn-export-csv', 'btn-export-json', 'btn-clear-saved'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = has ? '' : 'none';
+            });
+        }
+
+        /* ---------- export ---------- */
+
+        function exportRows() {
+            return [...testResults].sort((a, b) => a.model.localeCompare(b.model));
+        }
+
+        function csvEscape(v) {
+            v = String(v == null ? '' : v);
+            return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+        }
+
+        function exportCSV() {
+            if (testResults.length === 0) { toast('No test results to export.', 'info'); return; }
+            const lines = [['Model', 'Status', 'Time (s)', 'TTFT (s)', 'Prompt tok', 'Output tok', 'Cost (USD)', 'Response'].join(',')];
+            exportRows().forEach(r => {
+                const u = r.usage || {};
+                const cost = computeCost(r.model, r.usage);
+                lines.push([
+                    csvEscape(r.model), r.status, r.time,
+                    r.ttft != null ? Number(r.ttft).toFixed(1) : '',
+                    u.prompt || '', u.completion || '',
+                    cost != null ? cost.toFixed(6) : '',
+                    csvEscape(r.response)
+                ].join(','));
+            });
+            downloadFile('model-test.csv', lines.join('\n'), 'text/csv');
+        }
+
+        function exportJSON() {
+            if (testResults.length === 0) { toast('No test results to export.', 'info'); return; }
+            downloadFile('model-test.json', JSON.stringify(exportRows(), null, 2), 'application/json');
+        }
+
+        function downloadFile(name, content, type) {
+            const blob = new Blob([content], { type });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        /* ---------- comparison ---------- */
+
+        function compareSelected() {
+            const selected = getSelectedModels();
+            if (selected.length === 0) {
+                toast('Select at least one model.', 'info');
+                return;
+            }
+            const resultDiv = document.getElementById('result');
+            const cols = selected.map(({ idx }) => {
+                const m = currentModels[idx];
+                const r = testResults.find(t => t.model === m.id);
+                const body = r ? r.response : '(no result yet)';
+                return `<div class="compare-col"><h4>${esc(m.id)}</h4><div class="compare-body">${esc(body)}</div></div>`;
+            }).join('');
+            const html = `<div id="compare-panel" class="test-panel">
+                <h3>Compare ${selected.length} model${selected.length > 1 ? 's' : ''}</h3>
+                <div class="compare-wrap">${cols}</div>
+            </div>`;
+            const panel = document.getElementById('compare-panel');
+            if (panel) panel.outerHTML = html;
+            else resultDiv.insertAdjacentHTML('beforeend', html);
+        }
+
+        /* ---------- single-model test panel ---------- */
+
+        function selectModel(idx) {
+            const modelId = currentModels[idx].id;
+            const resultDiv = document.getElementById('result');
+            const existingTest = document.getElementById('test-panel');
+
+            const panelHtml = `
+                <div id="test-panel" class="test-panel">
+                    <h3>Test model: <code>${esc(modelId)}</code></h3>
+                    <textarea id="prompt" rows="3" placeholder="Enter a test prompt...">Hi</textarea>
+                    <div class="prompt-bar" style="margin-top:10px">
+                        <label class="duration-group"><input type="checkbox" id="single-stream"> Stream (TTFT, live)</label>
+                        <button onclick="runTest(${idx})">Send Test</button>
+                        <span style="color:var(--muted);font-size:12px">uses Advanced params above</span>
+                    </div>
+                    <div id="test-response"></div>
+                </div>
+            `;
+
+            if (existingTest) {
+                existingTest.outerHTML = panelHtml;
+            } else {
+                resultDiv.insertAdjacentHTML('beforeend', panelHtml);
+            }
+        }
+
+        async function runTest(idx) {
+            const modelId = currentModels[idx].id;
+            const prompt = document.getElementById('prompt').value.trim();
+            const responseDiv = document.getElementById('test-response');
+            const stream = document.getElementById('single-stream').checked;
+            const params = getGenParams();
+
+            if (!prompt) {
+                responseDiv.innerHTML = '<div class="error">Please enter a prompt</div>';
+                return;
+            }
+
+            const baseBody = {
+                api_key: currentApiKey,
+                base_url: currentBaseUrl,
+                provider: currentProvider,
+                headers: currentHeaders,
+                timeout: currentTimeout,
+                model: modelId,
+                prompt: prompt,
+                ...params
+            };
+
+            if (stream) {
+                responseDiv.innerHTML = '<div class="response" id="single-live"></div>';
+                const liveEl = document.getElementById('single-live');
+                let text = '', usage = null, errMsg = null;
+                try {
+                    const res = await fetch('/test-model-stream', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(baseBody)
+                    });
+                    if (!res.ok) {
+                        let msg = 'Request failed';
+                        try { const d = await res.json(); msg = d.error || msg; } catch (e) {}
+                        responseDiv.innerHTML = `<div class="error">${esc(msg)}</div>`;
+                        return;
+                    }
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        let nl;
+                        while ((nl = buffer.indexOf('\n')) >= 0) {
+                            const line = buffer.slice(0, nl);
+                            buffer = buffer.slice(nl + 1);
+                            if (!line.startsWith('data:')) continue;
+                            const payload = line.slice(5).trim();
+                            if (!payload || payload === '[DONE]') continue;
+                            let ev;
+                            try { ev = JSON.parse(payload); } catch (e) { continue; }
+                            if (ev.type === 'delta') { text += ev.text; liveEl.textContent = text; }
+                            else if (ev.type === 'usage') { usage = { ...(usage || {}), ...ev.usage }; }
+                            else if (ev.type === 'retry') { toast(`${modelId}: retrying without ${ev.field} (model rejected it)`, 'info'); }
+                            else if (ev.type === 'error') { errMsg = ev.error; }
+                        }
+                    }
+                    if (errMsg) {
+                        responseDiv.innerHTML = `<div class="error">${esc(errMsg)}</div>`;
+                    } else {
+                        const cost = computeCost(modelId, usage);
+                        const tok = usage ? `<br><small>${usage.prompt || 0} in / ${usage.completion || 0} out tok${cost != null ? ` · $${cost.toFixed(4)}` : ''}</small>` : '';
+                        responseDiv.innerHTML = `<div class="response"><strong>Response:</strong><br>${esc(text)}${tok}</div>`;
+                    }
+                } catch (err) {
+                    responseDiv.innerHTML = `<div class="error">Network error: ${esc(err.message)}</div>`;
+                }
+                return;
+            }
+
+            responseDiv.innerHTML = '<p>Calling model...</p>';
+
+            try {
+                const res = await fetch('/test-model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...baseBody, stream: false })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    responseDiv.innerHTML = `<div class="error">${esc(data.error || 'Request failed')}</div>`;
+                    return;
+                }
+
+                const usage = data.usage;
+                const cost = computeCost(modelId, usage);
+                const tok = usage ? `<br><small>${usage.prompt || 0} in / ${usage.completion || 0} out tok${cost != null ? ` · $${cost.toFixed(4)}` : ''}</small>` : '';
+                responseDiv.innerHTML = `<div class="response"><strong>Response:</strong><br>${esc(data.response)}${tok}</div>`;
+            } catch (err) {
+                responseDiv.innerHTML = `<div class="error">Network error: ${esc(err.message)}</div>`;
+            }
+        }
+
+        /* ---------- provider comparison ---------- */
+
+        function populateCompareSelects() {
+            ['a', 'b'].forEach(side => {
+                const sel = document.getElementById(`compare-${side}-provider`);
+                if (!sel) return;
+                sel.innerHTML = Object.entries(PROVIDER_LABELS)
+                    .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
+                    .join('');
+            });
+        }
+
+        function updateComparePlaceholders(side) {
+            const provider = document.getElementById(`compare-${side}-provider`).value;
+            const def = PROVIDER_DEFAULTS[provider] || '';
+            const baseUrlInput = document.getElementById(`compare-${side}-base_url`);
+            baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. https://YOUR-RESOURCE.openai.azure.com/openai/v1)';
+            document.getElementById(`compare-${side}-api_key`).placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
+        }
+
+        function updateCompareProviderUI(side) {
+            updateComparePlaceholders(side);
+            const provider = document.getElementById(`compare-${side}-provider`).value;
+            document.getElementById(`compare-${side}-base_url`).value = PROVIDER_DEFAULTS[provider] || '';
+        }
+
+        function readCompareConfig(side) {
+            return {
+                provider: document.getElementById(`compare-${side}-provider`).value,
+                base_url: document.getElementById(`compare-${side}-base_url`).value.trim(),
+                api_key: document.getElementById(`compare-${side}-api_key`).value.trim(),
+                headers: parseHeadersString(document.getElementById(`compare-${side}-headers`).value.trim()),
+                timeout: parseInt(document.getElementById(`compare-${side}-timeout`).value) || 180
+            };
+        }
+
+        function validateCompareConfig(cfg, side) {
+            if (cfg.headers === null) return `Provider ${side.toUpperCase()}: headers must be a JSON object`;
+            if (!cfg.api_key && cfg.provider !== 'ollama') return `Provider ${side.toUpperCase()}: API key is required`;
+            if (!cfg.base_url && cfg.provider === 'azure') return `Provider ${side.toUpperCase()}: Azure requires a base URL`;
+            return null;
+        }
+
+        async function fetchCompareModels(cfg) {
+            const res = await fetch('/list-models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return (data.models || []).map(m => typeof m === 'string' ? { id: m, meta: {} } : m);
+        }
+
+        function dedupeModels(models) {
+            const map = new Map();
+            models.forEach(m => { if (!map.has(m.id)) map.set(m.id, m.meta || {}); });
+            return map;
+        }
+
+        function buildComparison(aModels, bModels) {
+            const aMap = dedupeModels(aModels);
+            const bMap = dedupeModels(bModels);
+            const both = [], onlyA = [], onlyB = [];
+            aMap.forEach((meta, id) => { bMap.has(id) ? both.push(id) : onlyA.push(id); });
+            bMap.forEach((meta, id) => { if (!aMap.has(id)) onlyB.push(id); });
+            const sortIds = arr => arr.sort((a, b) => a.localeCompare(b));
+            sortIds(both); sortIds(onlyA); sortIds(onlyB);
+            return { both, onlyA, onlyB, aCount: aMap.size, bCount: bMap.size, aMap, bMap };
+        }
+
+        function renderCompareSection(title, ids, aMap, bMap) {
+            if (!ids.length) return '';
+            const rows = ids.map(id => {
+                const inA = aMap.has(id);
+                const inB = bMap.has(id);
+                const meta = inA ? aMap.get(id) : bMap.get(id);
+                return `<tr>
+                    <td class="col-model">${esc(id)}<button class="copy-btn" data-model="${esc(id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaBitsHtml(meta)}</td>
+                    <td class="${inA ? 'yes' : 'no'}">${inA ? '✅' : '❌'}</td>
+                    <td class="${inB ? 'yes' : 'no'}">${inB ? '✅' : '❌'}</td>
+                </tr>`;
+            }).join('');
+            return `<div class="compare-section">
+                <h3>${esc(title)} — ${ids.length}</h3>
+                <table class="compare-table">
+                    <thead><tr><th>Model</th><th>A</th><th>B</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+        }
+
+        function renderComparison(aModels, bModels, aCfg, bCfg) {
+            const cmp = buildComparison(aModels, bModels);
+            const aLabel = PROVIDER_LABELS[aCfg.provider] || aCfg.provider;
+            const bLabel = PROVIDER_LABELS[bCfg.provider] || bCfg.provider;
+            const resultDiv = document.getElementById('compare-result');
+
+            let html = `<div class="compare-summary">
+                <div class="summary-card"><div class="num">${cmp.aCount}</div><div class="label">${esc(aLabel)}</div></div>
+                <div class="summary-card"><div class="num">${cmp.bCount}</div><div class="label">${esc(bLabel)}</div></div>
+                <div class="summary-card"><div class="num">${cmp.both.length}</div><div class="label">In both</div></div>
+                <div class="summary-card"><div class="num">${cmp.onlyA.length}</div><div class="label">Only ${esc(aLabel)}</div></div>
+                <div class="summary-card"><div class="num">${cmp.onlyB.length}</div><div class="label">Only ${esc(bLabel)}</div></div>
+            </div>`;
+
+            html += renderCompareSection('In both providers', cmp.both, cmp.aMap, cmp.bMap);
+            html += renderCompareSection(`Only in ${aLabel}`, cmp.onlyA, cmp.aMap, cmp.bMap);
+            html += renderCompareSection(`Only in ${bLabel}`, cmp.onlyB, cmp.aMap, cmp.bMap);
+
+            if (!cmp.both.length && !cmp.onlyA.length && !cmp.onlyB.length) {
+                html += '<p>No models returned by either provider.</p>';
+            }
+            resultDiv.innerHTML = html;
+        }
+
+        function filterCompareModels() {
+            const q = (document.getElementById('compare-search')?.value || '').trim().toLowerCase();
+            const resultDiv = document.getElementById('compare-result');
+            let anyVisible = false;
+            resultDiv.querySelectorAll('.compare-section').forEach(section => {
+                let visible = 0;
+                section.querySelectorAll('tbody tr').forEach(row => {
+                    const text = row.querySelector('.col-model')?.textContent.toLowerCase() || '';
+                    const show = !q || text.includes(q);
+                    row.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+                section.style.display = visible ? '' : 'none';
+                if (visible) anyVisible = true;
+            });
+            let msg = document.getElementById('compare-no-match');
+            if (!anyVisible && q) {
+                if (!msg) {
+                    msg = document.createElement('p');
+                    msg.id = 'compare-no-match';
+                    resultDiv.appendChild(msg);
+                }
+                msg.textContent = `No models match "${q}".`;
+            } else if (msg) {
+                msg.remove();
+            }
+        }
+
+        async function compareProviders() {
+            const resultDiv = document.getElementById('compare-result');
+            const aCfg = readCompareConfig('a');
+            const bCfg = readCompareConfig('b');
+            const aErr = validateCompareConfig(aCfg, 'a');
+            const bErr = validateCompareConfig(bCfg, 'b');
+            const errors = [aErr, bErr].filter(Boolean);
+            if (errors.length) {
+                resultDiv.innerHTML = `<div class="error">${errors.join('<br>')}</div>`;
+                return;
+            }
+
+            const searchInput = document.getElementById('compare-search');
+            if (searchInput) searchInput.value = '';
+            saveCompareSettings();
+            resultDiv.innerHTML = '<p>Loading models from both providers...</p>';
+
+            const results = await Promise.allSettled([
+                fetchCompareModels(aCfg),
+                fetchCompareModels(bCfg)
+            ]);
+
+            const aError = results[0].status === 'rejected' ? results[0].reason.message : null;
+            const bError = results[1].status === 'rejected' ? results[1].reason.message : null;
+            if (aError || bError) {
+                const parts = [];
+                if (aError) parts.push(`Provider A: ${esc(aError)}`);
+                if (bError) parts.push(`Provider B: ${esc(bError)}`);
+                resultDiv.innerHTML = `<div class="error">${parts.join('<br>')}</div>`;
+                return;
+            }
+
+            renderComparison(results[0].value, results[1].value, aCfg, bCfg);
+            filterCompareModels();
+        }
+
+        function saveCompareSettings() {
+            try {
+                localStorage.setItem(COMPARE_SETTINGS_KEY, JSON.stringify({
+                    a_provider: document.getElementById('compare-a-provider').value,
+                    a_base_url: document.getElementById('compare-a-base_url').value.trim(),
+                    a_timeout: document.getElementById('compare-a-timeout').value,
+                    a_headers: document.getElementById('compare-a-headers').value,
+                    b_provider: document.getElementById('compare-b-provider').value,
+                    b_base_url: document.getElementById('compare-b-base_url').value.trim(),
+                    b_timeout: document.getElementById('compare-b-timeout').value,
+                    b_headers: document.getElementById('compare-b-headers').value
+                }));
+            } catch (e) { /* storage unavailable */ }
+        }
+
+        function loadCompareSettings() {
+            let s;
+            try { s = JSON.parse(localStorage.getItem(COMPARE_SETTINGS_KEY) || 'null'); } catch (e) { return; }
+
+            const defaultA = DEFAULT_PROVIDER;
+            const defaultB = DEFAULT_PROVIDER !== 'openrouter' ? 'openrouter' : 'gemini';
+            document.getElementById('compare-a-provider').value = defaultA;
+            document.getElementById('compare-b-provider').value = defaultB;
+
+            if (s) {
+                if (typeof s.a_provider === 'string' && PROVIDER_LABELS[s.a_provider]) {
+                    document.getElementById('compare-a-provider').value = s.a_provider;
+                }
+                if (typeof s.b_provider === 'string' && PROVIDER_LABELS[s.b_provider]) {
+                    document.getElementById('compare-b-provider').value = s.b_provider;
+                }
+            }
+
+            updateComparePlaceholders('a');
+            updateComparePlaceholders('b');
+
+            const setField = (id, saved, fallback) => {
+                const el = document.getElementById(id);
+                el.value = (typeof saved === 'string' && saved) ? saved : fallback;
+            };
+            setField('compare-a-base_url', s && s.a_base_url, PROVIDER_DEFAULTS[document.getElementById('compare-a-provider').value] || '');
+            setField('compare-b-base_url', s && s.b_base_url, PROVIDER_DEFAULTS[document.getElementById('compare-b-provider').value] || '');
+            if (s) {
+                if (s.a_timeout) document.getElementById('compare-a-timeout').value = s.a_timeout;
+                if (typeof s.a_headers === 'string') document.getElementById('compare-a-headers').value = s.a_headers;
+                if (s.b_timeout) document.getElementById('compare-b-timeout').value = s.b_timeout;
+                if (typeof s.b_headers === 'string') document.getElementById('compare-b-headers').value = s.b_headers;
+            }
+        }
+
+        /* ---------- self-update ---------- */
+
+        const UPDATE_DISMISS_KEY = 'model-lister:update-dismissed';
+
+        async function checkUpdate() {
+            const banner = document.getElementById('update-banner');
+            try {
+                const res = await fetch('/check-update');
+                const data = await res.json();
+                if (!data.configured || !data.has_update) return;
+                let dismissed = null;
+                try { dismissed = JSON.parse(localStorage.getItem(UPDATE_DISMISS_KEY) || 'null'); } catch (e) {}
+                if (dismissed && dismissed.remote === data.remote) return; // user dismissed this version
+                document.getElementById('update-msg').innerHTML =
+                    `New version available: <code>v${esc(data.remote)}</code> (current <code>v${esc(data.current)}</code>)` +
+                    `<small>From github.com/${esc(data.repo)}/${esc(data.branch)}</small>`;
+                banner.classList.add('show');
+            } catch (e) { /* offline / not configured — ignore */ }
+        }
+
+        function dismissUpdate() {
+            const msg = document.getElementById('update-msg');
+            const remoteMatch = msg.innerHTML.match(/v(.*?)<\/code> \(current/);
+            const remote = remoteMatch ? remoteMatch[1] : '';
+            try { localStorage.setItem(UPDATE_DISMISS_KEY, JSON.stringify({ remote, at: Date.now() })); } catch (e) {}
+            document.getElementById('update-banner').classList.remove('show');
+        }
+
+        async function performUpdate() {
+            const btn = document.getElementById('update-btn');
+            const msg = document.getElementById('update-msg');
+            btn.disabled = true;
+            msg.innerHTML = 'Updating… <small>pulling latest and restarting. The page will reload automatically.</small>';
+            try {
+                const res = await fetch('/update', { method: 'POST' });
+                const data = await res.json();
+                if (data.docker || !data.updated) {
+                    btn.style.display = 'none';
+                    msg.innerHTML = `Update not applied. <small>${esc(data.message || '')}</small>`;
+                    return;
+                }
+            } catch (e) {
+                // server is restarting — expected
+            }
+            pollForRestart();
+        }
+
+        async function pollForRestart() {
+            const msg = document.getElementById('update-msg');
+            const deadline = Date.now() + 30000;
+            while (Date.now() < deadline) {
+                await sleep(1500);
+                try {
+                    const res = await fetch('/health', { cache: 'no-store' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        toast(`Restarted on v${data.version}. Reloading…`, 'success');
+                        setTimeout(() => location.reload(), 600);
+                        return;
+                    }
+                } catch (e) { /* still down — keep polling */ }
+            }
+            msg.innerHTML = 'Restart is taking longer than expected. <small>Refresh the page manually.</small>';
+        }
+
+        /* ---------- side panel navigation ---------- */
+
+        const VIEW_KEY = 'model-lister:view';
+
+        function switchView(view) {
+            document.querySelectorAll('.view').forEach(v =>
+                v.classList.toggle('active', v.id === `view-${view}`));
+            document.querySelectorAll('.side-item').forEach(b =>
+                b.classList.toggle('active', b.dataset.view === view));
+            try { localStorage.setItem(VIEW_KEY, view); } catch (e) { /* storage unavailable */ }
+        }
+
+        function loadView() {
+            let view = 'lister';
+            try { view = localStorage.getItem(VIEW_KEY) || 'lister'; } catch (e) { /* keep default */ }
+            switchView(view);
+        }
+
+        /* ---------- keyboard shortcuts ---------- */
+
+        document.addEventListener('keydown', function (e) {
+            if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+            const tag = document.activeElement?.tagName;
+            if (tag === 'TEXTAREA' || tag === 'INPUT') {
+                // Single test panel textarea → run that test
+                if (document.getElementById('test-panel')?.contains(document.activeElement)) {
+                    e.preventDefault();
+                    const idx = parseInt(document.querySelector('#test-panel button')?.onclick?.toString().match(/runTest\((\d+)\)/)?.[1]);
+                    // Fallback: find the runTest button
+                    const btn = document.querySelector('#test-panel button[onclick^="runTest"]');
+                    if (btn) btn.click();
+                    return;
+                }
+                // Batch prompt bar → test selected
+                if (document.getElementById('batch-prompt')?.contains?.(document.activeElement) || document.activeElement?.id === 'batch-prompt') {
+                    e.preventDefault();
+                    if (!batchRunning) testSelected();
+                }
+            }
+        });
+
+        // Initialize UI
+        loadTheme();
+        loadSettings();
+        updatePlaceholders();
+        document.getElementById('provider').addEventListener('change', updateProviderUI);
+        document.getElementById('api_key').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') listModels();
+        });
+
+        populateCompareSelects();
+        loadCompareSettings();
+        loadView();
+        checkUpdate();
+        ['a', 'b'].forEach(side => {
+            document.getElementById(`compare-${side}-provider`).addEventListener('change', () => updateCompareProviderUI(side));
+        });
+    </script>
+</body>
+</html>
