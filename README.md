@@ -40,6 +40,24 @@ List models per provider, run batch tests with live token streaming, measure lat
 
 ## Quick start
 
+### Run with Docker Compose (Recommended)
+
+```bash
+docker compose up -d
+```
+
+Or to pull the pre-built image from GitHub Container Registry:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Or build and run locally:
+
+```bash
+docker compose up -d --build
+```
+
 ### Run with Docker
 
 ```bash
@@ -62,7 +80,7 @@ Open http://localhost:2463
 
 ## Configuration
 
-All settings are optional environment variables:
+All settings are optional environment variables (can also be configured via `.env` or copied from `.env.example`):
 
 | Variable | Default | Purpose |
 |---|---|---|

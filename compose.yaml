@@ -1,0 +1,27 @@
+# Pull and run with:
+#   docker compose pull      # fetch the latest image from ghcr.io
+#   docker compose up -d     # start the app
+# Update to a new version after the CI image is published:
+#   docker compose pull && docker compose up -d
+# Build locally instead (no registry):
+#   docker compose up -d --build
+
+services:
+  model-lister:
+    image: ghcr.io/jye556/ai-model-lister:latest
+    build: .  # used only with `docker compose up -d --build`
+    container_name: model-lister
+    ports:
+      - "2463:2463"
+    environment:
+      DEFAULT_BASE_URL: ${DEFAULT_BASE_URL:-https://sub2api.midah.my/v1}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
+      GITHUB_REPO: ${GITHUB_REPO:-jye556/AI-Model-Lister}
+      UPDATE_BRANCH: ${UPDATE_BRANCH:-main}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:2463/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

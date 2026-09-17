@@ -20,7 +20,7 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.0'
+    return '3.1'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.

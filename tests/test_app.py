@@ -172,7 +172,7 @@ class TestModelTests(unittest.TestCase):
         self.assertIsNone(resp.get_json()['ttft'])
         body = mp.call_args.kwargs['json']
         self.assertEqual(body['model'], 'gpt-x')
-        self.assertEqual(mp.call_args.args[0], 'https://api.openai.com/v1/chat/completions')
+        self.assertEqual(mp.call_args.args[0], f'{app_module.DEFAULT_BASE_URL}/chat/completions')
 
     def test_claude_messages(self):
         fake = FakeResponse(json_data={'content': [{'type': 'text', 'text': 'bonjour'}]})
