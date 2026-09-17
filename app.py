@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import subprocess
@@ -20,7 +21,7 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.1'
+    return '3.2'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
@@ -124,6 +125,20 @@ def get_timeout(data):
     return max(1.0, min(600.0, value))
 
 
+def parse_image_input(image_str):
+    """Parse a data URL or HTTP(S) URL into structured image information."""
+    if not image_str or not isinstance(image_str, str):
+        return None
+    image_str = image_str.strip()
+    if image_str.startswith('data:') and ';base64,' in image_str:
+        header, b64_data = image_str.split(';base64,', 1)
+        mime = header[5:].split(';')[0] or 'image/jpeg'
+        return {'type': 'data_url', 'mime': mime, 'base64': b64_data.strip(), 'url': image_str}
+    elif image_str.startswith('http://') or image_str.startswith('https://'):
+        return {'type': 'url', 'mime': 'image/jpeg', 'base64': None, 'url': image_str}
+    return None
+
+
 def parse_gen_params(data):
     """Generation parameters sent from the client, clamped to safe ranges."""
     try:
@@ -137,7 +152,8 @@ def parse_gen_params(data):
         temperature = 0.7
     temperature = max(0.0, min(2.0, temperature))
     system = (data.get('system') or '').strip()
-    return {'max_tokens': max_tokens, 'temperature': temperature, 'system': system}
+    image = (data.get('image') or '').strip()
+    return {'max_tokens': max_tokens, 'temperature': temperature, 'system': system, 'image': image}
 
 
 def normalize_usage_openai(u):
@@ -183,13 +199,30 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
 
     When include_temperature is False the temperature field is omitted entirely
     (used as a fallback for models that reject non-1 temperatures, e.g. o-series).
+    Supports multimodal image input (data URLs and HTTP URLs) for vision models.
     """
     max_tokens = params['max_tokens']
     temperature = params['temperature']
     system = params['system']
+    img = parse_image_input(params.get('image'))
 
     if provider == 'gemini':
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        parts = []
+        if img:
+            b64 = img['base64']
+            mime = img['mime']
+            if not b64 and img['type'] == 'url':
+                try:
+                    r = requests.get(img['url'], timeout=10)
+                    if r.status_code == 200:
+                        b64 = base64.b64encode(r.content).decode('ascii')
+                        mime = r.headers.get('Content-Type', 'image/jpeg').split(';')[0]
+                except Exception:
+                    pass
+            if b64:
+                parts.append({"inlineData": {"mimeType": mime, "data": b64}})
+        parts.append({"text": prompt})
+        payload = {"contents": [{"parts": parts}]}
         if system:
             payload["systemInstruction"] = {"parts": [{"text": system}]}
         gen_cfg = {"maxOutputTokens": max_tokens}
@@ -199,10 +232,35 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         return payload
 
     if provider == 'claude':
+        if img:
+            b64 = img['base64']
+            mime = img['mime']
+            if not b64 and img['type'] == 'url':
+                try:
+                    r = requests.get(img['url'], timeout=10)
+                    if r.status_code == 200:
+                        b64 = base64.b64encode(r.content).decode('ascii')
+                        mime = r.headers.get('Content-Type', 'image/jpeg').split(';')[0]
+                except Exception:
+                    pass
+            content = []
+            if b64:
+                content.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": mime,
+                        "data": b64
+                    }
+                })
+            content.append({"type": "text", "text": prompt})
+        else:
+            content = prompt
+
         payload = {
             'model': model,
             'max_tokens': max_tokens,
-            'messages': [{'role': 'user', 'content': prompt}],
+            'messages': [{'role': 'user', 'content': content}],
         }
         if include_temperature:
             payload['temperature'] = temperature
@@ -211,10 +269,18 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         return payload
 
     if provider == 'xai':
+        if img:
+            user_input = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": img['url']}}
+            ]
+        else:
+            user_input = prompt
+
         payload = {
             'model': model,
             'reasoning': {'effort': 'low'},
-            'input': prompt,
+            'input': user_input,
             'max_output_tokens': max_tokens,
         }
         if include_temperature:
@@ -224,10 +290,18 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         return payload
 
     # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA)
+    if img:
+        user_content = [
+            {'type': 'text', 'text': prompt},
+            {'type': 'image_url', 'image_url': {'url': img['url']}}
+        ]
+    else:
+        user_content = prompt
+
     messages = []
     if system:
         messages.append({'role': 'system', 'content': system})
-    messages.append({'role': 'user', 'content': prompt})
+    messages.append({'role': 'user', 'content': user_content})
     payload = {
         'model': model,
         'messages': messages,
@@ -236,6 +310,7 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
     if include_temperature:
         payload['temperature'] = temperature
     return payload
+
 
 
 def is_temperature_error(e):

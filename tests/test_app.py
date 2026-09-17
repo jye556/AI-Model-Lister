@@ -6,6 +6,7 @@ import requests
 import app as app_module
 from app import (
     app,
+    build_payload,
     consume_stream,
     error_detail,
     extract_xai_response_text,
@@ -16,6 +17,7 @@ from app import (
     normalize_usage_xai,
     parse_extra_headers,
     parse_gen_params,
+    parse_image_input,
 )
 
 
@@ -265,10 +267,51 @@ class EnhancementTests(unittest.TestCase):
         self.assertEqual(p['max_tokens'], 300)
         self.assertAlmostEqual(p['temperature'], 0.7)
         self.assertEqual(p['system'], '')
-        p2 = parse_gen_params({'max_tokens': 0, 'temperature': 9, 'system': '  hi '})
+        self.assertEqual(p['image'], '')
+        p2 = parse_gen_params({'max_tokens': 0, 'temperature': 9, 'system': '  hi ', 'image': 'data:image/png;base64,123'})
         self.assertEqual(p2['max_tokens'], 1)          # clamped up to 1
         self.assertAlmostEqual(p2['temperature'], 2.0)  # clamped to 2.0
         self.assertEqual(p2['system'], 'hi')
+        self.assertEqual(p2['image'], 'data:image/png;base64,123')
+
+    def test_parse_image_input(self):
+        self.assertIsNone(parse_image_input(None))
+        self.assertIsNone(parse_image_input(''))
+        # Data URL
+        d = parse_image_input('data:image/png;base64,iVBORw0KGgo=')
+        self.assertEqual(d['type'], 'data_url')
+        self.assertEqual(d['mime'], 'image/png')
+        self.assertEqual(d['base64'], 'iVBORw0KGgo=')
+        # HTTP URL
+        u = parse_image_input('https://example.com/pic.jpg')
+        self.assertEqual(u['type'], 'url')
+        self.assertEqual(u['url'], 'https://example.com/pic.jpg')
+
+    def test_vision_payload_openai(self):
+        params = parse_gen_params({'image': 'https://example.com/pic.jpg'})
+        payload = build_payload('openai', 'gpt-4o', 'describe this', params)
+        msg = payload['messages'][0]
+        self.assertEqual(msg['role'], 'user')
+        self.assertEqual(msg['content'][0], {'type': 'text', 'text': 'describe this'})
+        self.assertEqual(msg['content'][1], {'type': 'image_url', 'image_url': {'url': 'https://example.com/pic.jpg'}})
+
+    def test_vision_payload_claude(self):
+        params = parse_gen_params({'image': 'data:image/jpeg;base64,abc123=='})
+        payload = build_payload('claude', 'claude-3-5-sonnet', 'what is this', params)
+        msg = payload['messages'][0]
+        self.assertEqual(msg['role'], 'user')
+        self.assertEqual(msg['content'][0]['type'], 'image')
+        self.assertEqual(msg['content'][0]['source']['data'], 'abc123==')
+        self.assertEqual(msg['content'][0]['source']['media_type'], 'image/jpeg')
+        self.assertEqual(msg['content'][1], {'type': 'text', 'text': 'what is this'})
+
+    def test_vision_payload_gemini(self):
+        params = parse_gen_params({'image': 'data:image/png;base64,xyz999=='})
+        payload = build_payload('gemini', 'gemini-1.5-pro', 'look at this', params)
+        parts = payload['contents'][0]['parts']
+        self.assertEqual(parts[0]['inlineData']['data'], 'xyz999==')
+        self.assertEqual(parts[0]['inlineData']['mimeType'], 'image/png')
+        self.assertEqual(parts[1]['text'], 'look at this')
 
     def test_usage_normalizers(self):
         self.assertEqual(normalize_usage_openai(

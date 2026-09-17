@@ -244,6 +244,43 @@
         .count { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
         .note { font-size: 12px; color: var(--dim); margin-top: 20px; }
 
+        /* Image upload & preview */
+        .image-chip-container {
+            display: flex; align-items: center; gap: 8px;
+            margin: 8px 0; flex-wrap: wrap;
+        }
+        .image-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 6px; padding: 4px 10px; font-size: 12px;
+            color: var(--text); max-width: 100%;
+        }
+        .image-chip img {
+            width: 28px; height: 28px; object-fit: cover;
+            border-radius: 4px; border: 1px solid var(--border);
+        }
+        .image-chip .img-name {
+            max-width: 220px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; font-weight: 500;
+        }
+        .image-chip .img-size { color: var(--muted); font-size: 11px; }
+        .image-chip .img-remove {
+            background: none; border: none; color: var(--muted);
+            cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1;
+        }
+        .image-chip .img-remove:hover { color: var(--red); }
+        .badge-vision {
+            display: inline-block;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+            margin-right: 4px;
+            font-weight: 500;
+        }
+
         /* Update banner */
         .update-banner {
             display: none; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -818,12 +855,133 @@
             return parseInt(document.getElementById('timeout').value) || 180;
         }
 
+        let currentAttachedImage = null; // { dataUrl, name, size }
+
+        function handleImageFileSelect(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            processAndAttachImage(file);
+            input.value = '';
+        }
+
+        function processAndAttachImage(file) {
+            if (!file.type || !file.type.startsWith('image/')) {
+                toast('Please select a valid image file (PNG, JPG, WebP, GIF).', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const maxDim = 1600;
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) {
+                            h = Math.round((h * maxDim) / w);
+                            w = maxDim;
+                        } else {
+                            w = Math.round((w * maxDim) / h);
+                            h = maxDim;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+                    const dataUrl = canvas.toDataURL(mime, 0.88);
+                    const sizeKb = Math.round((dataUrl.length * 3 / 4) / 1024);
+                    setAttachedImage({
+                        dataUrl: dataUrl,
+                        name: file.name || 'image.png',
+                        size: `${sizeKb} KB`
+                    });
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function promptImageUrl() {
+            const url = prompt('Enter an image URL (http:// or https://):');
+            if (!url || !url.trim()) return;
+            const trimmed = url.trim();
+            if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+                toast('Invalid URL. Must begin with http:// or https://', 'error');
+                return;
+            }
+            const name = trimmed.split('/').pop().split('?')[0] || 'remote-image';
+            setAttachedImage({
+                dataUrl: trimmed,
+                name: name,
+                size: 'URL'
+            });
+        }
+
+        function setAttachedImage(imgObj) {
+            currentAttachedImage = imgObj;
+            renderImageChips();
+            const bp = document.getElementById('batch-prompt');
+            if (bp && (bp.value === 'Hi' || !bp.value.trim())) {
+                bp.value = 'Describe this image in detail.';
+            }
+            const sp = document.getElementById('prompt');
+            if (sp && (sp.value === 'Hi' || !sp.value.trim())) {
+                sp.value = 'Describe this image in detail.';
+            }
+            toast(`Image attached: ${imgObj.name}`, 'info');
+        }
+
+        function removeAttachedImage() {
+            currentAttachedImage = null;
+            renderImageChips();
+            toast('Image removed', 'info');
+        }
+
+        function renderImageChips() {
+            const containers = document.querySelectorAll('.image-chip-container');
+            containers.forEach(el => {
+                if (!currentAttachedImage) {
+                    el.innerHTML = '';
+                    el.style.display = 'none';
+                } else {
+                    el.style.display = 'flex';
+                    el.innerHTML = `
+                        <div class="image-chip">
+                            <img src="${esc(currentAttachedImage.dataUrl)}" alt="Preview">
+                            <span class="img-name" title="${esc(currentAttachedImage.name)}">${esc(currentAttachedImage.name)}</span>
+                            <span class="img-size">(${esc(currentAttachedImage.size)})</span>
+                            <button type="button" class="img-remove" onclick="removeAttachedImage()" title="Remove image">✕</button>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // Support pasting images from clipboard directly
+        window.addEventListener('paste', function(e) {
+            const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+            if (!items) return;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type && items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                        processAndAttachImage(blob);
+                        break;
+                    }
+                }
+            }
+        });
+
         function getGenParams() {
             const maxTok = parseInt(document.getElementById('batch-max-tokens')?.value) || 300;
             const tempRaw = document.getElementById('batch-temperature')?.value;
             const temp = tempRaw === '' || tempRaw == null ? 0.7 : parseFloat(tempRaw);
             const system = (document.getElementById('batch-system')?.value || '').trim();
-            return { max_tokens: maxTok, temperature: isNaN(temp) ? 0.7 : temp, system };
+            const image = currentAttachedImage ? currentAttachedImage.dataUrl : '';
+            return { max_tokens: maxTok, temperature: isNaN(temp) ? 0.7 : temp, system, image };
         }
 
         function parseHeadersString(raw) {
@@ -1006,6 +1164,9 @@
                 </select>
                 <input type="text" id="batch-prompt" value="Hi" placeholder="Enter test prompt...">
                 <button class="btn-blue" onclick="savePromptPreset()">Save Preset</button>
+                <button type="button" class="icon-btn" title="Attach image file (or paste with Ctrl+V)" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
+                <button type="button" class="icon-btn" title="Attach image by URL" onclick="promptImageUrl()">🔗 URL</button>
+                <input type="file" id="batch-image-file" accept="image/*" style="display:none" onchange="handleImageFileSelect(this)">
                 <div class="duration-group">
                     <label for="batch-delay">Wait</label>
                     <input type="text" id="batch-delay" value="5">
@@ -1020,6 +1181,9 @@
                 </label>
                 <button class="advanced-toggle" id="advanced-toggle" onclick="toggleAdvanced()">Advanced ▾</button>
             </div>`;
+
+            // Image chip container
+            html += `<div class="image-chip-container" id="batch-image-chip" style="display:none"></div>`;
 
             // Advanced (generation params)
             html += `<div class="advanced-row" id="advanced-row">
@@ -1072,7 +1236,7 @@
                 <div class="col-time sortable" onclick="sortRows('time')" title="Sort by time">Time ↕</div>
             </div>`;
             models.forEach((m, idx) => {
-                const metaHtml = metaBitsHtml(m.meta);
+                const metaHtml = metaBitsHtml(m.meta, m.id);
                 html += `<div class="model-row" id="row-${idx}" data-time="" data-status="">
                     <div class="col-check"><input type="checkbox" class="model-check" data-idx="${idx}" onchange="saveChecked()"></div>
                     <div class="col-model"><span class="model-name" onclick="selectModel(${idx})">${esc(m.id)}</span><button class="copy-btn" data-model="${esc(m.id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaHtml}</div>
@@ -1105,9 +1269,20 @@
             renderBatchSummary();
         }
 
-        function metaBitsHtml(meta) {
+        function isVisionModel(id) {
+            if (!id) return false;
+            const lower = id.toLowerCase();
+            return lower.includes('4o') || lower.includes('vision') || lower.includes('-vl') ||
+                   lower.includes('claude-3') || lower.includes('gemini') || lower.includes('pixtral') ||
+                   lower.includes('llava') || lower.includes('gpt-4-turbo');
+        }
+
+        function metaBitsHtml(meta, modelId) {
             meta = meta || {};
             const bits = [];
+            if (modelId && isVisionModel(modelId)) {
+                bits.push('<span class="badge-vision" title="Supports image/vision inputs">👁️ Vision</span>');
+            }
             if (meta.display_name) bits.push(esc(meta.display_name));
             if (meta.context) bits.push(esc(meta.context));
             if (meta.owned_by) bits.push('by ' + esc(meta.owned_by));
@@ -1644,7 +1819,10 @@
                 <div id="test-panel" class="test-panel">
                     <h3>Test model: <code>${esc(modelId)}</code></h3>
                     <textarea id="prompt" rows="3" placeholder="Enter a test prompt...">Hi</textarea>
+                    <div class="image-chip-container" id="single-image-chip" style="display:none"></div>
                     <div class="prompt-bar" style="margin-top:10px">
+                        <button type="button" class="icon-btn" title="Attach image file (or paste with Ctrl+V)" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
+                        <button type="button" class="icon-btn" title="Attach image by URL" onclick="promptImageUrl()">🔗 URL</button>
                         <label class="duration-group"><input type="checkbox" id="single-stream"> Stream (TTFT, live)</label>
                         <button onclick="runTest(${idx})">Send Test</button>
                         <span style="color:var(--muted);font-size:12px">uses Advanced params above</span>
@@ -1658,6 +1836,7 @@
             } else {
                 resultDiv.insertAdjacentHTML('beforeend', panelHtml);
             }
+            renderImageChips();
         }
 
         async function runTest(idx) {
@@ -1837,7 +2016,7 @@
                 const inB = bMap.has(id);
                 const meta = inA ? aMap.get(id) : bMap.get(id);
                 return `<tr>
-                    <td class="col-model">${esc(id)}<button class="copy-btn" data-model="${esc(id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaBitsHtml(meta)}</td>
+                    <td class="col-model">${esc(id)}<button class="copy-btn" data-model="${esc(id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaBitsHtml(meta, id)}</td>
                     <td class="${inA ? 'yes' : 'no'}">${inA ? '✅' : '❌'}</td>
                     <td class="${inB ? 'yes' : 'no'}">${inB ? '✅' : '❌'}</td>
                 </tr>`;

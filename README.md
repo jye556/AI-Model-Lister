@@ -13,6 +13,9 @@ List models per provider, run batch tests with live token streaming, measure lat
 ### Listing & testing
 - Live model listing per provider, with metadata (display name, context window, owner, creation date)
 - Single-model and **batch** testing — sequential or concurrent, with a configurable delay between calls
+- **Multimodal / Vision testing** — attach images via file picker, image URL, or `Ctrl+V` clipboard paste directly into prompts; client-side downscaling prevents payload limits
+- **Native Vision adapters** — automatic payload translation for Google Gemini (`inlineData`), Anthropic Claude (`image` content blocks), xAI Grok, and OpenAI-compatible (`image_url`) endpoints
+- **Vision badges** — `👁️ Vision` badge automatically tags recognized multimodal models in listings and comparisons
 - **Live streaming** — tokens render in the UI as they arrive, with time-to-first-token (TTFT) measured
 - **Token usage** (prompt / completion) captured per test, with **estimated cost** from an editable per-model pricing table
 - **Configurable generation parameters** — system prompt, max tokens, temperature
@@ -159,7 +162,7 @@ Notes:
 python -m unittest discover -s tests -v
 ```
 
-The suite covers provider dispatch, auth/header handling, streaming TTFT + usage, temperature auto-fallback, the SSE endpoint, and the self-update check/guidance paths.
+The suite covers provider dispatch, auth/header handling, streaming TTFT + usage, temperature auto-fallback, multimodal/vision payload adaptation (OpenAI, Claude, Gemini), the SSE endpoint, and the self-update check/guidance paths.
 
 ---
 
