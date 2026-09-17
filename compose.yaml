@@ -14,7 +14,7 @@ services:
     ports:
       - "2463:2463"
     environment:
-      DEFAULT_BASE_URL: ${DEFAULT_BASE_URL:-https://sub2api.midah.my/v1}
+      DEFAULT_BASE_URL: ${DEFAULT_BASE_URL:-https://api.openai.com/v1}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
       GITHUB_REPO: ${GITHUB_REPO:-jye556/AI-Model-Lister}
       UPDATE_BRANCH: ${UPDATE_BRANCH:-main}

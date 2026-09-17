@@ -26,14 +26,14 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.3'
+    return '3.4'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
 VERSION = _read_version()
 
 # Default OpenAI-compatible endpoint. Override with the DEFAULT_BASE_URL env var.
-DEFAULT_BASE_URL = os.environ.get('DEFAULT_BASE_URL', 'https://sub2api.midah.my/v1')
+DEFAULT_BASE_URL = os.environ.get('DEFAULT_BASE_URL', '').strip() or 'https://api.openai.com/v1'
 DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
 
 # Self-update configuration.

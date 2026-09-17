@@ -58,6 +58,8 @@ class HelperTests(unittest.TestCase):
     def test_get_base_url_provider_default(self):
         self.assertEqual(get_base_url('gemini', ''),
                          'https://generativelanguage.googleapis.com/v1beta')
+        self.assertEqual(get_base_url('openai', ''),
+                         'https://api.openai.com/v1')
 
     def test_get_base_url_nvidia_default(self):
         self.assertEqual(get_base_url('nvidia', ''),

@@ -87,7 +87,7 @@ All settings are optional environment variables (can also be configured via `.en
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DEFAULT_BASE_URL` | `https://sub2api.midah.my/v1` | Default OpenAI-compatible endpoint |
+| `DEFAULT_BASE_URL` | `https://api.openai.com/v1` | Default OpenAI-compatible endpoint |
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
 | `GITHUB_REPO` | `jye556/AI-Model-Lister` | Repo checked for self-update `version.txt` |
 | `UPDATE_BRANCH` | `main` | Branch to pull when updating |
