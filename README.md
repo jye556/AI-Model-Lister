@@ -44,41 +44,65 @@ List models per provider, run batch tests with live token streaming, measure lat
 
 ## Quick start
 
-### Run with Docker Compose (Recommended)
+### Install and Run with Docker (Recommended)
 
+#### 1. Clone the repository
 ```bash
-docker compose up -d
+git clone https://github.com/jye556/AI-Model-Lister.git
+cd AI-Model-Lister
+```
+
+#### 2. Configure environment (Optional)
+```bash
+cp .env.example .env
+```
+*(You can customize `.env` now, or update settings later directly from the in-app **Settings** tab).*
+
+#### 3. Start with Docker Compose
+```bash
+# Build locally and start the container in the background:
+docker compose up -d --build
 ```
 
 Or to pull the pre-built image from GitHub Container Registry:
-
 ```bash
 docker compose pull && docker compose up -d
 ```
 
-Or build and run locally:
-
+#### Alternative: Run with standalone Docker
 ```bash
-docker compose up -d --build
-```
-
-### Run with Docker
-
-```bash
+# Build the image
 docker build -t model-lister .
-docker run -p 2463:2463 model-lister
+
+# Run the container
+docker run -d \
+  --name model-lister \
+  -p 2463:2463 \
+  --restart unless-stopped \
+  model-lister
 ```
 
-Open http://localhost:2463
+#### 4. Access the web app
+Open **http://localhost:2463** (or `http://<your-server-ip>:2463`) in your browser.
 
-### Run locally
+---
 
-```bash
-pip install -r requirements.txt
-python app.py
-```
+### Run locally with Python
 
-Open http://localhost:2463
+1. Clone and enter the repository:
+   ```bash
+   git clone https://github.com/jye556/AI-Model-Lister.git
+   cd AI-Model-Lister
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start the server:
+   ```bash
+   python app.py
+   ```
+4. Open **http://localhost:2463**
 
 ---
 
