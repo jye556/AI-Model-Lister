@@ -504,7 +504,7 @@
 
                     <div class="form-group">
                         <label for="base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
-                        <input type="text" id="base_url" value="">
+                        <input type="text" id="base_url" value="{{ default_base_url }}">
                     </div>
 
                     <div class="form-row">
@@ -860,10 +860,7 @@
 
         function updateProviderUI() {
             updatePlaceholders();
-            const curVal = document.getElementById('base_url').value.trim();
-            if (!curVal || Object.values(PROVIDER_DEFAULTS).includes(curVal) || curVal.includes('sub2api.midah.my') || curVal.includes('jye.myvnc.com')) {
-                document.getElementById('base_url').value = '';
-            }
+            document.getElementById('base_url').value = PROVIDER_DEFAULTS[document.getElementById('provider').value] || '';
         }
 
         function getTimeoutInput() {
@@ -1017,6 +1014,7 @@
         function saveSettings() {
             try {
                 localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+                    server_default: PROVIDER_DEFAULTS.openai,
                     provider: document.getElementById('provider').value,
                     base_url: document.getElementById('base_url').value.trim(),
                     timeout: document.getElementById('timeout').value,
@@ -1037,22 +1035,23 @@
             let s;
             try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); } catch (e) { return; }
             document.getElementById('provider').value = DEFAULT_PROVIDER;
-            let needsSave = false;
+            const currentServerDefault = PROVIDER_DEFAULTS.openai || '';
             if (s) {
-                if (typeof s.base_url === 'string') {
-                    if (s.base_url.includes('sub2api.midah.my') || s.base_url.includes('jye.myvnc.com') || s.base_url === 'https://api.openai.com/v1') {
-                        document.getElementById('base_url').value = '';
-                        needsSave = true;
-                    } else {
-                        document.getElementById('base_url').value = s.base_url;
-                    }
+                if (s.server_default && s.server_default !== currentServerDefault) {
+                    document.getElementById('base_url').value = currentServerDefault;
+                } else if (typeof s.base_url === 'string' && s.base_url) {
+                    document.getElementById('base_url').value = s.base_url;
+                } else {
+                    document.getElementById('base_url').value = currentServerDefault;
                 }
                 if (s.timeout) document.getElementById('timeout').value = s.timeout;
                 if (typeof s.headers === 'string') document.getElementById('headers').value = s.headers;
                 if (s.delay || s.concurrency || s.prompt || s.max_tokens || s.temperature || s.system != null || s.stream != null || s.advanced) pendingSettings = s;
+            } else {
+                document.getElementById('base_url').value = currentServerDefault;
             }
             updatePlaceholders();
-            if (needsSave) saveSettings();
+            saveSettings();
         }
 
         /* ---------- prompt presets ---------- */
@@ -1976,11 +1975,8 @@
 
         function updateCompareProviderUI(side) {
             updateComparePlaceholders(side);
-            const input = document.getElementById(`compare-${side}-base_url`);
-            const curVal = input.value.trim();
-            if (!curVal || Object.values(PROVIDER_DEFAULTS).includes(curVal) || curVal.includes('sub2api.midah.my') || curVal.includes('jye.myvnc.com')) {
-                input.value = '';
-            }
+            const provider = document.getElementById(`compare-${side}-provider`).value;
+            document.getElementById(`compare-${side}-base_url`).value = PROVIDER_DEFAULTS[provider] || '';
         }
 
         function readCompareConfig(side) {
@@ -2140,6 +2136,7 @@
         function saveCompareSettings() {
             try {
                 localStorage.setItem(COMPARE_SETTINGS_KEY, JSON.stringify({
+                    server_default: PROVIDER_DEFAULTS.openai,
                     a_provider: document.getElementById('compare-a-provider').value,
                     a_base_url: document.getElementById('compare-a-base_url').value.trim(),
                     a_timeout: document.getElementById('compare-a-timeout').value,
@@ -2173,29 +2170,28 @@
             updateComparePlaceholders('a');
             updateComparePlaceholders('b');
 
-            let compareNeedsSave = false;
-            const setField = (id, saved) => {
+            const currentServerDefault = PROVIDER_DEFAULTS.openai || '';
+            const setField = (id, providerElId, saved) => {
                 const el = document.getElementById(id);
-                if (typeof saved === 'string' && saved) {
-                    if (saved.includes('sub2api.midah.my') || saved.includes('jye.myvnc.com') || saved === 'https://api.openai.com/v1' || Object.values(PROVIDER_DEFAULTS).includes(saved)) {
-                        el.value = '';
-                        compareNeedsSave = true;
-                    } else {
-                        el.value = saved;
-                    }
+                const prov = document.getElementById(providerElId).value;
+                const def = PROVIDER_DEFAULTS[prov] || '';
+                if (s && s.server_default && s.server_default !== currentServerDefault && prov === 'openai') {
+                    el.value = def;
+                } else if (typeof saved === 'string' && saved) {
+                    el.value = saved;
                 } else {
-                    el.value = '';
+                    el.value = def;
                 }
             };
-            setField('compare-a-base_url', s && s.a_base_url);
-            setField('compare-b-base_url', s && s.b_base_url);
+            setField('compare-a-base_url', 'compare-a-provider', s && s.a_base_url);
+            setField('compare-b-base_url', 'compare-b-provider', s && s.b_base_url);
             if (s) {
                 if (s.a_timeout) document.getElementById('compare-a-timeout').value = s.a_timeout;
                 if (typeof s.a_headers === 'string') document.getElementById('compare-a-headers').value = s.a_headers;
                 if (s.b_timeout) document.getElementById('compare-b-timeout').value = s.b_timeout;
                 if (typeof s.b_headers === 'string') document.getElementById('compare-b-headers').value = s.b_headers;
             }
-            if (compareNeedsSave) saveCompareSettings();
+            saveCompareSettings();
         }
 
         /* ---------- self-update ---------- */

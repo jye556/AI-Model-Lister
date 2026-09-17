@@ -32,8 +32,50 @@ def _read_version():
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
 VERSION = _read_version()
 
-# Default OpenAI-compatible endpoint. Override with the DEFAULT_BASE_URL env var.
-DEFAULT_BASE_URL = os.environ.get('DEFAULT_BASE_URL', '').strip() or 'https://api.openai.com/v1'
+def _load_env_file():
+    """Load configuration from .env file into os.environ if present."""
+    env_file = os.path.join(APP_DIR, '.env')
+    if os.path.isfile(env_file):
+        try:
+            with open(env_file, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#') or '=' not in line:
+                        continue
+                    k, v = line.split('=', 1)
+                    k = k.strip()
+                    v = v.strip().strip("'\"")
+                    if k and (k not in os.environ or not os.environ[k]):
+                        os.environ[k] = v
+        except Exception:
+            pass
+
+
+_load_env_file()
+
+
+def get_default_base_url():
+    """Return the configured default base URL, checking .env directly and os.environ."""
+    # Check .env directly so file edits take effect immediately
+    env_file = os.path.join(APP_DIR, '.env')
+    val = None
+    if os.path.isfile(env_file):
+        try:
+            with open(env_file, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('DEFAULT_BASE_URL='):
+                        val = line.split('=', 1)[1].strip().strip("'\"")
+                        break
+        except Exception:
+            pass
+    if val is None:
+        val = os.environ.get('DEFAULT_BASE_URL', '').strip()
+    return val or 'https://api.openai.com/v1'
+
+
+# Default OpenAI-compatible endpoint. Override with the DEFAULT_BASE_URL env var or .env.
+DEFAULT_BASE_URL = get_default_base_url()
 DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
 
 # Self-update configuration.
@@ -91,7 +133,9 @@ def get_base_url(provider, custom_base_url):
     """Return the correct base URL based on provider and custom input"""
     if custom_base_url:
         return custom_base_url.rstrip('/')
-    return PROVIDER_BASE_URLS.get(provider, DEFAULT_BASE_URL)
+    if provider == 'openai':
+        return get_default_base_url()
+    return PROVIDER_BASE_URLS.get(provider, get_default_base_url())
 
 
 def auth_headers(provider, api_key):
@@ -550,7 +594,7 @@ def consume_stream(gen):
 
 @app.route('/')
 def index():
-    return render_template('index.html', default_base_url=DEFAULT_BASE_URL,
+    return render_template('index.html', default_base_url=get_default_base_url(),
                            default_provider=DEFAULT_PROVIDER, version=VERSION)
 
 
