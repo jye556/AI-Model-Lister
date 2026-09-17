@@ -88,7 +88,6 @@ All settings are optional environment variables (can also be configured via `.en
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
 | `GITHUB_REPO` | `jye556/AI-Model-Lister` | Repo checked for self-update `version.txt` |
 | `UPDATE_BRANCH` | `main` | Branch to pull when updating |
-| `GITHUB_TOKEN` | *(unset)* | Personal access token if `GITHUB_REPO` is a private repository |
 | `RESTART_CMD` | *(unset)* | Shell command to restart after update (set under gunicorn/Docker/supervisor) |
 
 Examples:
