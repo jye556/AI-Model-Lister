@@ -79,12 +79,14 @@ DEFAULT_BASE_URL = get_default_base_url()
 DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
 
 # Self-update configuration.
-# GITHUB_REPO: "owner/repo" — where the app checks for a newer version.txt.
-# UPDATE_BRANCH: branch to pull from (default "main").
-# RESTART_CMD: optional shell command used to restart after an update
-#   (set this under gunicorn/Docker/supervisor; if unset, the dev server self-restarts).
-GITHUB_REPO = os.environ.get('GITHUB_REPO', 'jye556/AI-Model-Lister').strip()
-UPDATE_BRANCH = (os.environ.get('UPDATE_BRANCH', 'main').strip() or 'main')
+# Where the app checks version.txt for self-updates.
+GITHUB_REPO = os.environ.get('GITHUB_REPO', 'jye556/AI-Model-Lister').strip() or 'jye556/AI-Model-Lister'
+
+# Branch to pull when the Update button is pressed.
+UPDATE_BRANCH = os.environ.get('UPDATE_BRANCH', 'main').strip() or 'main'
+
+# Optional shell command used to restart after an update
+# (set this under gunicorn/Docker/supervisor; if unset, the dev server self-restarts).
 RESTART_CMD = os.environ.get('RESTART_CMD', '').strip()
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '').strip()
 

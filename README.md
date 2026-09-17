@@ -114,9 +114,10 @@ All settings are optional environment variables (can also be configured via `.en
 |---|---|---|
 | `DEFAULT_BASE_URL` | `https://api.openai.com/v1` | Default OpenAI-compatible endpoint |
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
-| `GITHUB_REPO` | `jye556/AI-Model-Lister` | Repo checked for self-update `version.txt` |
-| `UPDATE_BRANCH` | `main` | Branch to pull when updating |
 | `RESTART_CMD` | *(unset)* | Shell command to restart after update (set under gunicorn/Docker/supervisor) |
+| `GITHUB_REPO` | `jye556/AI-Model-Lister` | *(in app.py)* Repo checked for self-update `version.txt` |
+| `UPDATE_BRANCH` | `main` | *(in app.py)* Branch to pull when updating |
+
 
 Examples:
 
