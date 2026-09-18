@@ -402,7 +402,11 @@
             width: 220px; flex-shrink: 0; position: sticky; top: 20px;
             background: var(--bg2); border: 1px solid var(--border);
             border-radius: 8px; padding: 10px; height: fit-content;
+            transition: width 0.2s ease, opacity 0.2s ease, padding 0.2s ease, border-width 0.2s ease;
+            overflow: hidden;
         }
+        .layout.sidebar-collapsed { gap: 0; }
+        .layout.sidebar-collapsed .side-panel { width: 0; opacity: 0; padding: 0; border-width: 0; }
         .side-item {
             display: block; width: 100%; text-align: left;
             background: var(--bg); color: var(--text2);
@@ -465,6 +469,7 @@
         <div class="header-row">
             <h1>AI Model Lister <span class="app-version">v{{ version }}</span></h1>
             <div>
+                <button class="icon-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
                 <button class="icon-btn" onclick="openPricing()" title="Edit per-model pricing">💵 Pricing</button>
                 <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
             </div>
@@ -2300,6 +2305,21 @@
 
         /* ---------- side panel navigation ---------- */
 
+        const SIDEBAR_KEY = 'model-lister:sidebar';
+
+        function toggleSidebar() {
+            const layout = document.querySelector('.layout');
+            const collapsed = layout.classList.toggle('sidebar-collapsed');
+            try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+        }
+
+        function loadSidebar() {
+            try {
+                if (localStorage.getItem(SIDEBAR_KEY) === '1')
+                    document.querySelector('.layout').classList.add('sidebar-collapsed');
+            } catch (e) { /* keep default visible */ }
+        }
+
         const VIEW_KEY = 'model-lister:view';
 
         function switchView(view) {
@@ -2402,6 +2422,7 @@
         populateCompareSelects();
         loadCompareSettings();
         loadView();
+        loadSidebar();
         checkUpdate();
         ['a', 'b'].forEach(side => {
             document.getElementById(`compare-${side}-provider`).addEventListener('change', () => updateCompareProviderUI(side));
