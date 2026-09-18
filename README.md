@@ -83,35 +83,6 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Or to pull the pre-built image from GitHub Container Registry:
-```bash
-docker compose pull && docker compose up -d
-```
-
-#### Alternative: Run with standalone Docker
-
-Pull the pre-built image from GitHub Container Registry:
-```bash
-docker pull ghcr.io/jye556/ai-model-lister:latest
-
-docker run -d \
-  --name model-lister \
-  -p 2463:2463 \
-  --restart unless-stopped \
-  ghcr.io/jye556/ai-model-lister:latest
-```
-
-Or build it yourself:
-```bash
-docker build -t model-lister .
-
-docker run -d \
-  --name model-lister \
-  -p 2463:2463 \
-  --restart unless-stopped \
-  model-lister
-```
-
 #### 4. Access the web app
 Open **http://localhost:2463** (or `http://<your-server-ip>:2463`) in your browser.
 
@@ -146,40 +117,13 @@ All settings are optional environment variables (can also be configured via `.en
 |---|---|---|
 | `DEFAULT_BASE_URL` | `https://api.openai.com/v1` | Default OpenAI-compatible endpoint |
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
-| `GITHUB_REPO` | `jye556/AI-Model-Lister` | Repo checked for self-update `version.txt` |
-| `UPDATE_BRANCH` | `main` | Branch to pull when updating |
-| `GITHUB_TOKEN` | *(unset)* | Token for self-update on **private** repos/forks |
-| `RESTART_CMD` | *(unset)* | Shell command to restart after update (gunicorn/Docker/supervisor) |
-
-Examples:
-
-```bash
-# python app.py (dev — self-restart needs no RESTART_CMD)
-DEFAULT_BASE_URL=https://api.openai.com/v1 python app.py
-
-# gunicorn / supervisor
-GITHUB_REPO=jye556/AI-Model-Lister RESTART_CMD="systemctl restart model-lister" \
-    gunicorn --workers 2 --timeout 600 --bind 0.0.0.0:2463 app:app
-
-# Docker
-docker run -p 2463:2463 -e GITHUB_REPO=jye556/AI-Model-Lister model-lister
-```
 
 ---
 
 ## Self-update
 
-*Push to GitHub → pull in the app with one click.*
-
-1. **Bump `version.txt`** at the repo root (single source of truth — `app.py` reads it).
-2. Commit and push to the `main` branch:
-   ```bash
-   git add version.txt app.py templates/index.html
-   git commit -m "Release vX.Y.Z"
-   git push origin main
-   ```
-3. The running app calls `GET /check-update` on page load, comparing the local `version.txt` against `https://raw.githubusercontent.com/jye556/AI-Model-Lister/main/version.txt`. If a newer version is found, a banner appears: **New version vX available (current vY)**.
-4. Press **Update** → the app automatically pulls the latest code and reloads:
+1. The running app calls `GET /check-update` on page load, comparing the local `version.txt` against `https://raw.githubusercontent.com/jye556/AI-Model-Lister/main/version.txt`. If a newer version is found, a banner appears: **New version vX available (current vY)**.
+2. Press **Update** → the app automatically pulls the latest code and reloads:
    - In a **git checkout**: runs `git fetch` + `git reset --hard origin/main`.
    - In **Docker**: downloads the latest archive directly from GitHub, updates `/app`, and hot-reloads Gunicorn workers with zero downtime.
    - **Dismiss** hides the banner for that version until the next one ships.
