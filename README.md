@@ -1,10 +1,27 @@
 # AI Model Lister
 
+[![Tests](https://github.com/jye556/AI-Model-Lister/actions/workflows/test.yml/badge.svg)](https://github.com/jye556/AI-Model-Lister/actions/workflows/test.yml)
+[![Docker](https://github.com/jye556/AI-Model-Lister/actions/workflows/docker.yml/badge.svg)](https://github.com/jye556/AI-Model-Lister/actions/workflows/docker.yml)
+
 A single-page web UI to **list, test, and compare AI models** across providers — OpenAI-compatible APIs (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA NIM), xAI Grok, Google Gemini, and Anthropic Claude.
 
 List models per provider, run batch tests with live token streaming, measure latency / time-to-first-token / token usage / estimated cost, and compare two providers' model availability side by side.
 
 > API keys are only used for outbound requests and are **never** stored. Other settings are remembered in the browser's `localStorage`.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Self-update](#self-update)
+- [HTTP API](#http-api)
+- [Provider notes](#provider-notes)
+- [Tests](#tests)
+- [Tech stack](#tech-stack)
+- [License](#license)
 
 ---
 
@@ -44,6 +61,8 @@ List models per provider, run batch tests with live token streaming, measure lat
 
 ## Quick start
 
+> **Requirements:** [Docker](https://docs.docker.com/get-docker/) **or** Python 3.11+. The app listens on port **2463**.
+
 ### Install and Run with Docker (Recommended)
 
 #### 1. Clone the repository
@@ -70,11 +89,22 @@ docker compose pull && docker compose up -d
 ```
 
 #### Alternative: Run with standalone Docker
+
+Pull the pre-built image from GitHub Container Registry:
 ```bash
-# Build the image
+docker pull ghcr.io/jye556/ai-model-lister:latest
+
+docker run -d \
+  --name model-lister \
+  -p 2463:2463 \
+  --restart unless-stopped \
+  ghcr.io/jye556/ai-model-lister:latest
+```
+
+Or build it yourself:
+```bash
 docker build -t model-lister .
 
-# Run the container
 docker run -d \
   --name model-lister \
   -p 2463:2463 \
@@ -88,6 +118,8 @@ Open **http://localhost:2463** (or `http://<your-server-ip>:2463`) in your brows
 ---
 
 ### Run locally with Python
+
+> Requires **Python 3.11+**.
 
 1. Clone and enter the repository:
    ```bash
@@ -114,10 +146,10 @@ All settings are optional environment variables (can also be configured via `.en
 |---|---|---|
 | `DEFAULT_BASE_URL` | `https://api.openai.com/v1` | Default OpenAI-compatible endpoint |
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
-| `RESTART_CMD` | *(unset)* | Shell command to restart after update (set under gunicorn/Docker/supervisor) |
-| `GITHUB_REPO` | `jye556/AI-Model-Lister` | *(in app.py)* Repo checked for self-update `version.txt` |
-| `UPDATE_BRANCH` | `main` | *(in app.py)* Branch to pull when updating |
-
+| `GITHUB_REPO` | `jye556/AI-Model-Lister` | Repo checked for self-update `version.txt` |
+| `UPDATE_BRANCH` | `main` | Branch to pull when updating |
+| `GITHUB_TOKEN` | *(unset)* | Token for self-update on **private** repos/forks |
+| `RESTART_CMD` | *(unset)* | Shell command to restart after update (gunicorn/Docker/supervisor) |
 
 Examples:
 
@@ -127,7 +159,7 @@ DEFAULT_BASE_URL=https://api.openai.com/v1 python app.py
 
 # gunicorn / supervisor
 GITHUB_REPO=jye556/AI-Model-Lister RESTART_CMD="systemctl restart model-lister" \
-    gunicorn --workers 2 --bind 0.0.0.0:2463 app:app
+    gunicorn --workers 2 --timeout 600 --bind 0.0.0.0:2463 app:app
 
 # Docker
 docker run -p 2463:2463 -e GITHUB_REPO=jye556/AI-Model-Lister model-lister
@@ -135,13 +167,15 @@ docker run -p 2463:2463 -e GITHUB_REPO=jye556/AI-Model-Lister model-lister
 
 ---
 
-## Self-update (push to GitHub → pull in the app)
+## Self-update
+
+*Push to GitHub → pull in the app with one click.*
 
 1. **Bump `version.txt`** at the repo root (single source of truth — `app.py` reads it).
 2. Commit and push to the `main` branch:
    ```bash
    git add version.txt app.py templates/index.html
-   git commit -m "Release v3.1"
+   git commit -m "Release vX.Y.Z"
    git push origin main
    ```
 3. The running app calls `GET /check-update` on page load, comparing the local `version.txt` against `https://raw.githubusercontent.com/jye556/AI-Model-Lister/main/version.txt`. If a newer version is found, a banner appears: **New version vX available (current vY)**.
@@ -201,6 +235,8 @@ The suite covers provider dispatch, auth/header handling, streaming TTFT + usage
 - **Backend:** Python, Flask, requests, gunicorn
 - **Frontend:** single-file HTML/CSS/vanilla JS (no build step)
 - **Container:** Docker (Python 3.11-slim)
+
+---
 
 ## License
 
