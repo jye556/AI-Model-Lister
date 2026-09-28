@@ -19,11 +19,22 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def _read_version():
     """Read the app version from version.txt (single source of truth, also used remotely)."""
+    path = os.path.join(APP_DIR, 'version.txt')
     try:
-        with open(os.path.join(APP_DIR, 'version.txt')) as f:
+        # Try UTF-8 first
+        with open(path, encoding='utf-8') as f:
             v = f.read().strip()
         if v:
             return v
+    except UnicodeDecodeError:
+        try:
+            # Fallback to UTF-16 (for GitHub repo files with BOM)
+            with open(path, encoding='utf-16') as f:
+                v = f.read().strip()
+            if v:
+                return v
+        except Exception:
+            pass
     except OSError:
         pass
     return '3.5.0'
@@ -785,8 +796,8 @@ def _update_from_archive(target_dir):
                 if not member.name.startswith(top_prefix):
                     continue
                 rel_path = member.name[len(top_prefix):]
-                # Skip root, git metadata, and local .env
-                if not rel_path or rel_path.startswith('.git') or rel_path == '.env':
+                # Skip root, git metadata, local .env, and version.txt (managed separately)
+                if not rel_path or rel_path.startswith('.git') or rel_path in ('.env', 'version.txt'):
                     continue
 
                 dest_path = os.path.abspath(os.path.join(target_dir, rel_path))
