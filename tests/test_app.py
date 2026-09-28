@@ -1,7 +1,10 @@
 import os
 import shutil
+import sys
 import unittest
 from unittest import mock
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import requests
 
@@ -26,12 +29,13 @@ from app import (
 class FakeResponse:
     """Stand-in for requests.Response, optionally carrying an SSE line stream."""
 
-    def __init__(self, json_data=None, status_code=200, reason='', lines=None, text=None):
+    def __init__(self, json_data=None, status_code=200, reason='', lines=None, text=None, content=None):
         self._json = json_data
         self.status_code = status_code
         self.reason = reason
         self._lines = lines or []
         self.text = text
+        self.content = content if content is not None else (text.encode('utf-8') if text is not None else b'')
 
     def json(self):
         if self._json is None:
@@ -608,6 +612,28 @@ class SettingsApiTests(unittest.TestCase):
             app_module.DEFAULT_PROVIDER = orig_prov
             app_module.PROVIDER_BASE_URLS['openai'] = orig_base
             shutil.rmtree(temp_dir)
+
+
+class VersionTests(unittest.TestCase):
+    def test_clean_version(self):
+        self.assertEqual(app_module._clean_version('3.5.7\n'), '3.5.7')
+        self.assertEqual(app_module._clean_version(b'3.5.7\n'), '3.5.7')
+        self.assertEqual(app_module._clean_version(b'\xef\xbb\xbf3.5.7\n'), '3.5.7')
+        self.assertEqual(app_module._clean_version('3.5.7\r\n'.encode('utf-16-le')), '3.5.7')
+        self.assertEqual(app_module._clean_version('3.5.7\r\n'.encode('utf-16-be')), '3.5.7')
+
+    def test_check_update_with_utf16_remote(self):
+        with app.test_client() as client:
+            with mock.patch.object(app_module, 'GITHUB_REPO', 'me/repo'), \
+                 mock.patch.object(app_module, 'UPDATE_BRANCH', 'main'), \
+                 mock.patch.object(app_module, 'VERSION', '3.5.6'):
+                utf16_content = '3.5.7\r\n'.encode('utf-16-le')
+                fake = FakeResponse(content=utf16_content, status_code=200)
+                with mock.patch.object(app_module.requests, 'get', return_value=fake):
+                    resp = client.get('/check-update')
+                body = resp.get_json()
+                self.assertTrue(body['has_update'])
+                self.assertEqual(body['remote'], '3.5.7')
 
 
 if __name__ == '__main__':
