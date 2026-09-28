@@ -104,7 +104,6 @@
                 .view {
                     display: none;
                     height: 100%;
-                    display: flex;
                     flex-direction: column;
                 }
                 .view.active {
@@ -491,8 +490,6 @@
         .side-item:hover { background: var(--bg3); border-color: var(--accent); }
         .side-item.active { background: var(--blue-bg); color: #fff; border-color: var(--blue-h); }
         .main-content { flex: 1; min-width: 0; }
-        .view { display: none; }
-        .view.active { display: block; }
         @media (max-width: 760px) {
             .layout { flex-direction: column; }
             .side-panel { width: 100%; position: static; }
