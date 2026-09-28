@@ -2333,20 +2333,26 @@
             const btn = document.getElementById('update-btn');
             const msg = document.getElementById('update-msg');
             btn.disabled = true;
-            msg.innerHTML = 'Updating… <small>pulling latest and restarting. The page will reload automatically.</small>';
+                    msg.innerHTML = 'Updating… <small>pulling latest changes.</small>';
             try {
                 const res = await fetch('/update', { method: 'POST' });
                 const data = await res.json();
-                if (data.docker || !data.updated) {
+                        if (!data.updated) {
                     btn.style.display = 'none';
                     msg.innerHTML = `Update not applied. <small>${esc(data.message || '')}</small>`;
                     return;
                 }
-            } catch (e) {
-                // server is restarting — expected
-            }
-            pollForRestart();
-        }
+                        if (data.no_restart) {
+                            // No restart mode - just reload the page
+                            toast('Update applied. Reloading…', 'success');
+                            setTimeout(() => location.reload(), 600);
+                            return;
+                        }
+                    } catch (e) {
+                        // server is restarting — expected
+                    }
+                    pollForRestart();
+                }
 
         async function pollForRestart() {
             const msg = document.getElementById('update-msg');

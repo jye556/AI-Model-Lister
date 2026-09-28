@@ -88,6 +88,12 @@ UPDATE_BRANCH = os.environ.get('UPDATE_BRANCH', 'main').strip() or 'main'
 # Optional shell command used to restart after an update
 # (set this under gunicorn/Docker/supervisor; if unset, the dev server self-restarts).
 RESTART_CMD = os.environ.get('RESTART_CMD', '').strip()
+
+# If set to '1', skip automatic restart after update.
+# Useful when running under a process manager (gunicorn, supervisor) that handles reloads,
+# or when you want to manually reload the browser after updating static files.
+UPDATE_NO_RESTART = os.environ.get('UPDATE_NO_RESTART', '').strip() == '1'
+
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '').strip()
 
 PROVIDER_BASE_URLS = {
@@ -886,9 +892,14 @@ def update_app():
 
     new_ver = _read_version()
     # Success — relaunch / reload. Send the response first, then reload shortly after.
-    threading.Thread(target=lambda: (time.sleep(1.0), _do_restart()), daemon=True).start()
-    return jsonify({'updated': True,
-                    'message': f'Updated to v{new_ver}. Reloading...'})
+    if not UPDATE_NO_RESTART:
+        threading.Thread(target=lambda: (time.sleep(1.0), _do_restart()), daemon=True).start()
+        return jsonify({'updated': True,
+                        'message': f'Updated to v{new_ver}. Reloading...'})
+    else:
+        # No restart mode - just update files, let user manually reload
+        return jsonify({'updated': True, 'no_restart': True,
+                        'message': f'Updated to v{new_ver}. Please reload the page.'})
 
 
 @app.route('/api/settings', methods=['GET', 'POST'])
