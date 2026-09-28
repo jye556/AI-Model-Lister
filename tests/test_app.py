@@ -621,6 +621,23 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(app_module._clean_version(b'\xef\xbb\xbf3.5.7\n'), '3.5.7')
         self.assertEqual(app_module._clean_version('3.5.7\r\n'.encode('utf-16-le')), '3.5.7')
         self.assertEqual(app_module._clean_version('3.5.7\r\n'.encode('utf-16-be')), '3.5.7')
+        # Test UTF-16 with BOM
+        self.assertEqual(app_module._clean_version(b'\xff\xfe3\x00.\x005\x00.\x007\x00'), '3.5.7')
+        self.assertEqual(app_module._clean_version(b'\xfe\xff\x003\x00.\x005\x00.\x007'), '3.5.7')
+        # Test string containing \ufeff or \ufffe BOM
+        self.assertEqual(app_module._clean_version('\ufeff3.5.7'), '3.5.7')
+        self.assertEqual(app_module._clean_version('\ufffe3.5.7'), '3.5.7')
+        # Test leading 'v' or 'V'
+        self.assertEqual(app_module._clean_version('v3.5.8'), '3.5.8')
+        self.assertEqual(app_module._clean_version('V3.5.9'), '3.5.9')
+
+    def test_parse_version_tuple(self):
+        self.assertEqual(app_module._parse_version_tuple('3.5.7'), (3, 5, 7))
+        self.assertEqual(app_module._parse_version_tuple('\ufeff3.5.7'), (3, 5, 7))
+        self.assertEqual(app_module._parse_version_tuple('v3.5.8'), (3, 5, 8))
+        self.assertEqual(app_module._parse_version_tuple(''), ())
+        self.assertGreater(app_module._parse_version_tuple('3.5.10'), app_module._parse_version_tuple('3.5.9'))
+        self.assertGreater(app_module._parse_version_tuple('3.6.0'), app_module._parse_version_tuple('3.5.9'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
@@ -635,6 +652,28 @@ class VersionTests(unittest.TestCase):
                 self.assertTrue(body['has_update'])
                 self.assertEqual(body['remote'], '3.5.7')
 
+    def test_check_update_identical_or_older_version_no_update(self):
+        with app.test_client() as client:
+            with mock.patch.object(app_module, 'GITHUB_REPO', 'me/repo'), \
+                 mock.patch.object(app_module, 'UPDATE_BRANCH', 'main'), \
+                 mock.patch.object(app_module, 'VERSION', '3.5.7'):
+                # Identical version even with BOM should NOT trigger update
+                fake_bom = FakeResponse(text='\ufeff3.5.7\r\n', status_code=200)
+                with mock.patch.object(app_module.requests, 'get', return_value=fake_bom):
+                    resp = client.get('/check-update')
+                body = resp.get_json()
+                self.assertFalse(body['has_update'])
+                self.assertEqual(body['remote'], '3.5.7')
+
+                # Older remote version should NOT trigger update
+                fake_older = FakeResponse(text='3.5.6\n', status_code=200)
+                with mock.patch.object(app_module.requests, 'get', return_value=fake_older):
+                    resp = client.get('/check-update')
+                body = resp.get_json()
+                self.assertFalse(body['has_update'])
+                self.assertEqual(body['remote'], '3.5.6')
+
 
 if __name__ == '__main__':
     unittest.main()
+

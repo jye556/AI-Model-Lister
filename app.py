@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -20,10 +21,8 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 def _clean_version(raw):
     """Normalize version string or bytes, handling UTF-8, UTF-16, and BOMs."""
     if isinstance(raw, bytes):
-        if raw.startswith(b'\xff\xfe'):
-            text = raw.decode('utf-16-le', errors='replace')
-        elif raw.startswith(b'\xfe\xff'):
-            text = raw.decode('utf-16-be', errors='replace')
+        if raw.startswith(b'\xff\xfe') or raw.startswith(b'\xfe\xff'):
+            text = raw.decode('utf-16', errors='replace')
         elif b'\x00' in raw:
             if len(raw) >= 2 and raw[0] == 0:
                 text = raw.decode('utf-16-be', errors='replace')
@@ -33,7 +32,23 @@ def _clean_version(raw):
             text = raw.decode('utf-8-sig', errors='replace')
     else:
         text = str(raw)
-    return text.replace('\x00', '').strip()
+    # Strip null bytes, BOMs (\ufeff, \ufffe), and surrounding whitespace
+    text = text.replace('\x00', '').replace('\ufeff', '').replace('\ufffe', '').strip()
+    # Strip optional leading 'v' or 'V' if followed by a digit (e.g. 'v3.5.8' -> '3.5.8')
+    if text.lower().startswith('v') and len(text) > 1 and text[1].isdigit():
+        text = text[1:].strip()
+    return text
+
+
+def _parse_version_tuple(v):
+    """Parse version string into a tuple of ints for robust semantic comparison."""
+    if not v:
+        return ()
+    try:
+        parts = [int(x) for x in re.findall(r'\d+', str(v))]
+        return tuple(parts)
+    except Exception:
+        return ()
 
 
 def _read_version():
@@ -882,7 +897,13 @@ def check_update():
         return jsonify({'configured': True, 'has_update': False,
                         'current': VERSION, 'error': err})
 
-    has_update = bool(remote) and remote != VERSION
+    remote_tuple = _parse_version_tuple(remote)
+    current_tuple = _parse_version_tuple(VERSION)
+    if remote_tuple and current_tuple:
+        has_update = remote_tuple > current_tuple
+    else:
+        has_update = bool(remote) and remote != VERSION
+
     return jsonify({
         'configured': True, 'has_update': has_update,
         'current': VERSION, 'remote': remote,
