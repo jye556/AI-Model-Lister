@@ -796,8 +796,8 @@ def _update_from_archive(target_dir):
                 if not member.name.startswith(top_prefix):
                     continue
                 rel_path = member.name[len(top_prefix):]
-                                # Skip root, git metadata, local .env, and version.txt (managed separately)
-                                if not rel_path or rel_path.startswith('.git') or rel_path in ('.env', 'version.txt'):
+                # Skip root, git metadata, local .env, and version.txt (managed separately)
+                if not rel_path or rel_path.startswith('.git') or rel_path in ('.env', 'version.txt'):
                     continue
 
                 dest_path = os.path.abspath(os.path.join(target_dir, rel_path))

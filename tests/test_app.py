@@ -559,8 +559,8 @@ class UpdateTests(unittest.TestCase):
             with mock.patch.object(app_module.requests, 'get', return_value=fake):
                 app_module._update_from_archive(temp_dir)
 
-            with open(os.path.join(temp_dir, 'version.txt'), 'r') as f:
-                self.assertEqual(f.read().strip(), '3.3')
+            # version.txt should be skipped (like .env)
+            self.assertFalse(os.path.exists(os.path.join(temp_dir, 'version.txt')))
             with open(os.path.join(temp_dir, 'app.py'), 'r') as f:
                 self.assertEqual(f.read().strip(), "# new code")
             self.assertFalse(os.path.exists(os.path.join(temp_dir, '.env')))
