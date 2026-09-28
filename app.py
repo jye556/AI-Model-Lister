@@ -114,6 +114,90 @@ CLAUDE_MODELS = [
     'claude-3-5-haiku-20241022',
 ]
 
+# Static context window mappings for models from providers that don't return context_length
+# Values in tokens (context window size)
+STATIC_CONTEXT_WINDOWS = {
+    # OpenAI
+    'gpt-4o': 128000,
+    'gpt-4o-2024-05-13': 128000,
+    'gpt-4o-2024-08-06': 128000,
+    'gpt-4o-mini': 128000,
+    'gpt-4o-mini-2024-07-18': 128000,
+    'gpt-4-turbo': 128000,
+    'gpt-4-turbo-2024-04-09': 128000,
+    'gpt-4-turbo-preview': 128000,
+    'gpt-4': 8192,
+    'gpt-4-0613': 8192,
+    'gpt-4-32k': 32768,
+    'gpt-4-32k-0613': 32768,
+    'gpt-3.5-turbo': 16385,
+    'gpt-3.5-turbo-0125': 16385,
+    'gpt-3.5-turbo-1106': 16385,
+    'gpt-3.5-turbo-instruct': 4096,
+    'o1-preview': 128000,
+    'o1-mini': 128000,
+    'o1': 200000,
+    'o1-pro': 200000,
+    'o3-mini': 200000,
+    # Anthropic Claude
+    'claude-3-5-sonnet-20241022': 200000,
+    'claude-3-5-sonnet-20240620': 200000,
+    'claude-3-5-haiku-20241022': 200000,
+    'claude-3-opus-20240229': 200000,
+    'claude-3-sonnet-20240229': 200000,
+    'claude-3-haiku-20240307': 200000,
+    'claude-2.1': 200000,
+    'claude-2.0': 100000,
+    'claude-instant-1.2': 100000,
+    # Google Gemini
+    'gemini-1.5-pro': 2000000,
+    'gemini-1.5-pro-001': 2000000,
+    'gemini-1.5-pro-002': 2000000,
+    'gemini-1.5-flash': 1000000,
+    'gemini-1.5-flash-001': 1000000,
+    'gemini-1.5-flash-002': 1000000,
+    'gemini-1.0-pro': 32768,
+    'gemini-1.0-pro-vision': 16384,
+    # Mistral
+    'mistral-large-latest': 128000,
+    'mistral-medium-latest': 32768,
+    'mistral-small-latest': 32768,
+    'mistral-7b-instruct': 32768,
+    'mixtral-8x7b-instruct': 32768,
+    'mixtral-8x22b-instruct': 65536,
+    # DeepSeek
+    'deepseek-chat': 128000,
+    'deepseek-coder': 128000,
+    'deepseek-reasoner': 128000,
+    # Groq (models hosted on Groq)
+    'llama-3.1-405b-reasoning': 128000,
+    'llama-3.1-70b-versatile': 128000,
+    'llama-3.1-8b-instant': 128000,
+    'llama-3.3-70b-versatile': 128000,
+    'llama-3.3-70b-specdec': 128000,
+    'llama3-70b-8192': 8192,
+    'llama3-8b-8192': 8192,
+    'mixtral-8x7b-32768': 32768,
+    'gemma2-9b-it': 8192,
+    'qwen-2.5-32b': 128000,
+    # xAI
+    'grok-2': 131072,
+    'grok-2-latest': 131072,
+    'grok-beta': 131072,
+    # NVIDIA
+    'nvidia/nemotron-3-ultra': 128000,
+    'nvidia/nemotron-3-super': 128000,
+    'nvidia/nemotron-3-super-120b-a12b': 128000,
+    # Meta
+    'llama-3.1-405b': 128000,
+    'llama-3.1-70b': 128000,
+    'llama-3.1-8b': 128000,
+    'llama-3.2-90b': 128000,
+    'llama-3.2-11b': 128000,
+    'llama-3.2-3b': 128000,
+    'llama-3.2-1b': 128000,
+}
+
 
 def extract_xai_response_text(data):
     """Extract text from an xAI Responses API payload."""
@@ -921,13 +1005,24 @@ def list_models():
             try:
                 resp = requests.get(f'{base_url}/models', headers=headers, timeout=timeout)
                 resp.raise_for_status()
-                out = [{'id': m['id'],
-                        'meta': {'display_name': m.get('display_name', ''),
-                                 'created_at': (m.get('created_at') or '')[:10]}}
-                       for m in resp.json().get('data', []) if 'id' in m]
+                out = []
+                for m in resp.json().get('data', []):
+                    if 'id' not in m:
+                        continue
+                    meta = {'display_name': m.get('display_name', ''),
+                            'created_at': (m.get('created_at') or '')[:10]}
+                    # Add context window from static mapping
+                    if m['id'] in STATIC_CONTEXT_WINDOWS:
+                        meta['context'] = f"{STATIC_CONTEXT_WINDOWS[m['id']]:,} ctx"
+                    out.append({'id': m['id'], 'meta': meta})
             except requests.exceptions.RequestException:
                 # No /v1/models access — fall back to the static list
-                out = [{'id': m, 'meta': {}} for m in CLAUDE_MODELS]
+                out = []
+                for m in CLAUDE_MODELS:
+                    meta = {}
+                    if m in STATIC_CONTEXT_WINDOWS:
+                        meta['context'] = f"{STATIC_CONTEXT_WINDOWS[m]:,} ctx"
+                    out.append({'id': m, 'meta': meta})
 
         else:
             # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA)
@@ -947,6 +1042,9 @@ def list_models():
                     meta['context'] = f"{m['context_length']:,} ctx"
                 elif m.get('max_context_length'):
                     meta['context'] = f"{m['max_context_length']:,} ctx"
+                # Fall back to static mapping for known models
+                elif m['id'] in STATIC_CONTEXT_WINDOWS:
+                    meta['context'] = f"{STATIC_CONTEXT_WINDOWS[m['id']]:,} ctx"
                 out.append({'id': m['id'], 'meta': meta})
 
     except requests.exceptions.RequestException as e:
