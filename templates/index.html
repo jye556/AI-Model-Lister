@@ -2375,6 +2375,10 @@
 
         const UPDATE_DISMISS_KEY = 'model-lister:update-dismissed';
 
+        function cleanVersion(v) {
+            return String(v || '').replace(/[\ufeff\ufffe]/g, '').trim().replace(/^v/i, '');
+        }
+
         async function checkUpdate() {
             const banner = document.getElementById('update-banner');
             try {
@@ -2384,11 +2388,16 @@
                     console.warn('[AI Model Lister] Check update:', data.error);
                 }
                 if (!data.configured || !data.has_update) return;
+
+                const remote = cleanVersion(data.remote);
+                const current = cleanVersion(data.current);
+                if (!remote || remote === current) return;
+
                 let dismissed = null;
                 try { dismissed = JSON.parse(localStorage.getItem(UPDATE_DISMISS_KEY) || 'null'); } catch (e) {}
-                if (dismissed && dismissed.remote === data.remote) return; // user dismissed this version
+                if (dismissed && cleanVersion(dismissed.remote) === remote) return; // user dismissed this version
                 document.getElementById('update-msg').innerHTML =
-                    `New version available: <code>v${esc(data.remote)}</code> (current <code>v${esc(data.current)}</code>)` +
+                    `New version available: <code>v${esc(remote)}</code> (current <code>v${esc(current)}</code>)` +
                     `<small>From github.com/${esc(data.repo)}/${esc(data.branch)}</small>`;
                 banner.classList.add('show');
             } catch (e) { /* offline / not configured — ignore */ }
@@ -2397,7 +2406,7 @@
         function dismissUpdate() {
             const msg = document.getElementById('update-msg');
             const remoteMatch = msg.innerHTML.match(/v(.*?)<\/code> \(current/);
-            const remote = remoteMatch ? remoteMatch[1] : '';
+            const remote = remoteMatch ? cleanVersion(remoteMatch[1]) : '';
             try { localStorage.setItem(UPDATE_DISMISS_KEY, JSON.stringify({ remote, at: Date.now() })); } catch (e) {}
             document.getElementById('update-banner').classList.remove('show');
         }
