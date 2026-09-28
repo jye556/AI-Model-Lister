@@ -137,7 +137,16 @@
             font-size: 11px; color: var(--faint); margin-top: 2px;
             font-family: system-ui, sans-serif; word-break: break-word;
         }
-        .col-response {
+                .model-context {
+                    font-size: 11px; color: var(--accent2); font-weight: 500;
+                    font-family: monospace;
+                }
+                .col-context {
+                    width: 130px; flex-shrink: 0;
+                    text-align: center; padding: 0 8px;
+                    font-family: monospace; font-size: 11px; color: var(--accent2);
+                }
+                .col-response {
             flex: 1; min-width: 0;
             font-family: system-ui, sans-serif;
             font-size: 12px; color: var(--muted);
@@ -1292,24 +1301,33 @@
                 <button class="btn-blue" onclick="selectAllFiltered()">Select All Filtered</button>
             </div>`;
 
-            // Model list
+                        // Manual model entry
+                        html += `<div class="prompt-bar">
+                            <input type="text" id="manual-model-input" placeholder="Enter custom model name (e.g., gpt-4o, claude-3.5-sonnet)..." style="flex:1; min-width:250px;">
+                            <button class="btn-blue" onclick="addManualModel()">Add Model</button>
+                        </div>`;
+
+                        // Model list
             html += '<div class="models">';
             html += `<div class="model-header">
                 <div class="col-check"></div>
                 <div class="col-model sortable" onclick="sortRows('model')" title="Sort by name">Model ↕</div>
-                <div class="col-response sortable" onclick="sortRows('response')" title="Sort by status">Response ↕</div>
-                <div class="col-time sortable" onclick="sortRows('time')" title="Sort by time">Time ↕</div>
-            </div>`;
-            models.forEach((m, idx) => {
-                const metaHtml = metaBitsHtml(m.meta, m.id);
-                html += `<div class="model-row" id="row-${idx}" data-time="" data-status="">
-                    <div class="col-check"><input type="checkbox" class="model-check" data-idx="${idx}" onchange="saveChecked()"></div>
-                    <div class="col-model"><span class="model-name" onclick="selectModel(${idx})">${esc(m.id)}</span><button class="copy-btn" data-model="${esc(m.id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaHtml}</div>
-                    <div class="col-response" id="result-${idx}" onclick="toggleExpand(${idx})" style="cursor:pointer" title="Click to view full response"></div>
-                    <div class="col-time" id="time-${idx}"></div>
-                </div>`;
-            });
-            html += '</div>';
+                            <div class="col-context sortable" onclick="sortRows('context')" title="Sort by context window">Context ↕</div>
+                            <div class="col-response sortable" onclick="sortRows('response')" title="Sort by status">Response ↕</div>
+                            <div class="col-time sortable" onclick="sortRows('time')" title="Sort by time">Time ↕</div>
+                        </div>`;
+                        models.forEach((m, idx) => {
+                            const metaHtml = metaBitsHtml(m.meta, m.id);
+                            const contextHtml = m.meta && m.meta.context ? `<div class="model-context">${esc(m.meta.context)}</div>` : '<div class="model-context">—</div>';
+                            html += `<div class="model-row" id="row-${idx}" data-time="" data-status="">
+                                <div class="col-check"><input type="checkbox" class="model-check" data-idx="${idx}" onchange="saveChecked()"></div>
+                                <div class="col-model"><span class="model-name" onclick="selectModel(${idx})">${esc(m.id)}</span><button class="copy-btn" data-model="${esc(m.id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaHtml}</div>
+                                <div class="col-context">${contextHtml}</div>
+                                <div class="col-response" id="result-${idx}" onclick="toggleExpand(${idx})" style="cursor:pointer" title="Click to view full response"></div>
+                                <div class="col-time" id="time-${idx}"></div>
+                            </div>`;
+                        });
+                        html += '</div>';
 
             resultDiv.innerHTML = html;
 
@@ -1396,6 +1414,27 @@
             saveChecked();
         }
 
+        function addManualModel() {
+            const input = document.getElementById('manual-model-input');
+            const modelName = input.value.trim();
+            if (!modelName) return;
+
+            // Check if already exists
+            const exists = currentModels.some(m => m.id === modelName);
+            if (exists) {
+                toast(`Model "${modelName}" already in list`, 'warning');
+                return;
+            }
+
+            // Add to currentModels
+            currentModels.unshift({ id: modelName, meta: { manual: true } });
+            input.value = '';
+
+            // Re-render the model list
+            renderModelList(currentModels, currentModels.length);
+            toast(`Added custom model: ${modelName}`, 'success');
+        }
+
         function getSelectedModels() {
             const selected = [];
             document.querySelectorAll('.model-check:checked').forEach(cb => {
@@ -1421,6 +1460,10 @@
                 let r = 0;
                 if (key === 'model') {
                     r = a.querySelector('.model-name').textContent.localeCompare(b.querySelector('.model-name').textContent);
+                } else if (key === 'context') {
+                    const aCtx = parseContext(a.querySelector('.model-context').textContent);
+                    const bCtx = parseContext(b.querySelector('.model-context').textContent);
+                    r = aCtx - bCtx;
                 } else if (key === 'time') {
                     r = (parseFloat(a.dataset.time) || Infinity) - (parseFloat(b.dataset.time) || Infinity);
                 } else {
@@ -1430,6 +1473,17 @@
                 return r * sortState.dir;
             });
             rows.forEach(row => list.appendChild(row));
+        }
+
+        function parseContext(text) {
+            // Parse "128K ctx" or "—" to numeric value for sorting
+            if (!text || text === '—') return 0;
+            const match = text.match(/([\d,]+)\s*[KM]?/);
+            if (!match) return 0;
+            const num = parseInt(match[1].replace(/,/g, ''));
+            if (text.includes('M')) return num * 1000000;
+            if (text.includes('K')) return num * 1000;
+            return num;
         }
 
         /* ---------- batch testing ---------- */

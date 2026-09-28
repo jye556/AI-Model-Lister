@@ -942,6 +942,11 @@ def list_models():
                     meta['owned_by'] = m['owned_by']
                 if isinstance(m.get('created'), int):
                     meta['created'] = time.strftime('%Y-%m-%d', time.gmtime(m['created']))
+                # Fetch context window from provider metadata (OpenRouter provides context_length)
+                if m.get('context_length'):
+                    meta['context'] = f"{m['context_length']:,} ctx"
+                elif m.get('max_context_length'):
+                    meta['context'] = f"{m['max_context_length']:,} ctx"
                 out.append({'id': m['id'], 'meta': meta})
 
     except requests.exceptions.RequestException as e:
