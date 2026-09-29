@@ -518,6 +518,8 @@
             <h1 style="margin: 0; font-size: 1.25rem;">AI Model Lister <span class="app-version">v{{ version }}</span></h1>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 0.75rem; color: var(--muted);">Multi-Provider LLM Tester &amp; Benchmark Arena</span>
+                <span class="icon-btn" id="session-cost-ticker" onclick="resetSessionTicker()" title="Session Token Usage (Click to reset)" style="cursor:pointer; display:flex; align-items:center; gap:4px; font-weight:600;">🪙 <span id="ticker-tokens">0</span> tok (~$<span id="ticker-cost">0.000</span>)</span>
+                <button class="icon-btn" onclick="openCommandPalette()" title="Quick Actions (Ctrl+K)">🔍 Actions <kbd style="font-size:10px;background:var(--bg);padding:1px 5px;border-radius:3px;border:1px solid var(--border);">Ctrl+K</kbd></button>
                 <button class="icon-btn" onclick="openTemplatesModal()" title="Prompt Templates Library">📚 Templates</button>
                 <button class="icon-btn" onclick="openPricing()" title="Edit per-model pricing">💵 Pricing</button>
                 <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
@@ -609,12 +611,25 @@
                 <!-- VIEW: COMPARER -->
                 <section id="view-comparer" class="view">
                     <div class="compare-panel">
-                        <h2>Compare two providers</h2>
-                        <p>Fetch model lists for two providers and see which models exist in both, only Provider A, or only Provider B.</p>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <h2 style="margin:0 0 4px 0;">Compare two providers</h2>
+                                <p style="margin:0;">Fetch model lists for two providers and see which models exist in both, only Provider A, or only Provider B.</p>
+                            </div>
+                            <div style="background:var(--bg); padding:6px 12px; border-radius:6px; border:1px solid var(--border);">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; font-weight:600; margin:0;">
+                                    <input type="checkbox" id="compare-fuzzy" checked onchange="reRenderComparison()">
+                                    <span>Normalized / Fuzzy Match (strips vendor prefixes &amp; date tags)</span>
+                                </label>
+                            </div>
+                        </div>
 
                         <div class="provider-grid">
                             <div class="provider-card">
-                                <h3>Provider A</h3>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                    <h3 style="margin:0;">Provider A</h3>
+                                    <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="copyListerToCompare('a')">📋 Copy from Lister</button>
+                                </div>
                                 <div class="form-group">
                                     <label for="compare-a-provider">Provider</label>
                                     <select id="compare-a-provider"></select>
@@ -640,7 +655,10 @@
                             </div>
 
                             <div class="provider-card">
-                                <h3>Provider B</h3>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                    <h3 style="margin:0;">Provider B</h3>
+                                    <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="copyListerToCompare('b')">📋 Copy from Lister</button>
+                                </div>
                                 <div class="form-group">
                                     <label for="compare-b-provider">Provider</label>
                                     <select id="compare-b-provider"></select>
@@ -677,7 +695,17 @@
                 <!-- VIEW: MULTI-TURN CHAT -->
                 <section id="view-chat" class="view">
                     <div class="provider-card" style="margin-bottom: 16px;">
-                        <h3>Chat Session Configuration</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                            <h3 style="margin:0;">Chat Session Configuration</h3>
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <label style="margin:0; font-size:12px; color:var(--muted);">Session:</label>
+                                <select id="chat-session-select" onchange="switchChatSession(this.value)" style="width:160px; font-size:12px; padding:4px 8px;"></select>
+                                <button type="button" class="btn-green" style="padding:4px 8px; font-size:12px;" onclick="createNewChatSession()">+ New</button>
+                                <button type="button" class="icon-btn" style="padding:4px 8px; font-size:12px;" onclick="renameCurrentChatSession()" title="Rename session">✏️</button>
+                                <button type="button" class="btn-red" style="padding:4px 8px; font-size:12px;" onclick="deleteCurrentChatSession()" title="Delete session">🗑️</button>
+                                <span class="app-version" id="chat-ttft-badge" style="display:none; margin-left:6px; color:var(--accent);">TTFT: <span id="chat-ttft-val">--</span>s</span>
+                            </div>
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="chat-provider">Provider</label>
@@ -708,8 +736,11 @@
                         <div class="chat-history" id="chatHistory">
                             <div class="chat-msg assistant">Hello! I am ready to test multi-turn conversations. Type your message below.</div>
                         </div>
+                        <div class="image-chip-container" id="chat-image-chips" style="display:none; padding:4px 12px; background:var(--bg2);"></div>
                         <div class="chat-controls">
-                            <input type="text" id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                            <input type="text" id="chatInput" placeholder="Type a message... (Ctrl+Enter or Enter to send, Ctrl+V to paste screenshot)" onkeydown="if(event.key==='Enter'&&!event.shiftKey) sendChatMessage()">
+                            <input type="file" id="chat-image-file" accept="image/*" style="display:none" onchange="handleChatImageFile(this)">
+                            <button type="button" class="icon-btn" title="Attach Image" onclick="document.getElementById('chat-image-file').click()">🖼️</button>
                             <button class="btn-green" onclick="sendChatMessage()">Send</button>
                             <button class="icon-btn" onclick="openTemplatesModal('chat')" title="Insert Template">📚</button>
                             <button class="btn-orange" onclick="clearChat()">Clear</button>
@@ -851,6 +882,16 @@
                                 </select>
                             </div>
                         </div>
+                        <div style="background:var(--bg); padding:10px 14px; border-radius:6px; border:1px solid var(--border); margin-bottom:16px;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; font-size:13px; margin:0 0 6px 0;">
+                                <input type="checkbox" id="suite-matrix-mode" onchange="toggleSuiteMatrixMode()">
+                                <span>Multi-Model Evaluation Matrix (side-by-side comparative table with automated assertions)</span>
+                            </label>
+                            <div id="suite-matrix-models-wrap" style="display:none; margin-top:8px;">
+                                <label for="suite-matrix-models" style="font-size:12px; color:var(--muted);">Comma-separated models to evaluate:</label>
+                                <input type="text" id="suite-matrix-models" value="gpt-4o, gpt-4o-mini, claude-3-5-sonnet" placeholder="gpt-4o, gpt-4o-mini, llama3">
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label for="suite-base-url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
                             <input type="text" id="suite-base-url" value="{{ default_base_url }}">
@@ -930,23 +971,49 @@
 
                 <!-- VIEW: SETTINGS -->
                 <section id="view-settings" class="view">
-                    <div class="provider-card" style="max-width:650px;">
-                        <h3>Server Environment (.env)</h3>
-                        <p style="margin-top:4px;margin-bottom:18px;">Configure global environment defaults saved directly into the server's <code>.env</code> file.</p>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:16px;">
+                        <div class="provider-card">
+                            <h3>Server Environment (.env)</h3>
+                            <p style="margin-top:4px;margin-bottom:18px;">Configure global environment defaults saved directly into the server's <code>.env</code> file.</p>
 
-                        <div class="form-group">
-                            <label for="env-default-base-url">DEFAULT_BASE_URL</label>
-                            <input type="text" id="env-default-base-url" placeholder="https://api.openai.com/v1">
+                            <div class="form-group">
+                                <label for="env-default-base-url">DEFAULT_BASE_URL</label>
+                                <input type="text" id="env-default-base-url" placeholder="https://api.openai.com/v1">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="env-default-provider">DEFAULT_PROVIDER</label>
+                                <select id="env-default-provider"></select>
+                            </div>
+
+                            <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
+                                <button class="btn-green" id="env-save-btn" onclick="saveEnvSettings()">💾 Save to .env</button>
+                                <span id="env-save-status" style="font-size:13px;color:var(--dim);"></span>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="env-default-provider">DEFAULT_PROVIDER</label>
-                            <select id="env-default-provider"></select>
+                        <!-- Provider Key Vault & Connection Tester -->
+                        <div class="provider-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <h3 style="margin:0;">🔐 Provider API Key Vault</h3>
+                                <button type="button" class="btn-blue" style="padding:4px 8px; font-size:12px;" onclick="saveKeyVault()">Save Keys</button>
+                            </div>
+                            <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Store API keys securely in <code>.env</code> with 1-click connectivity ping testing.</p>
+
+                            <div id="keyVaultContainer" style="display:flex; flex-direction:column; gap:10px;">
+                                <!-- Rendered dynamically by initKeyVault() -->
+                            </div>
                         </div>
 
-                        <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
-                            <button class="btn-green" id="env-save-btn" onclick="saveEnvSettings()">💾 Save to .env</button>
-                            <span id="env-save-status" style="font-size:13px;color:var(--dim);"></span>
+                        <!-- Configuration Profile Backup & Restore -->
+                        <div class="provider-card">
+                            <h3>💾 Profile Backup &amp; Defaults</h3>
+                            <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Export or import all saved settings, custom prompt templates, and pricing overrides.</p>
+                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                <button class="btn-blue" onclick="exportProfileBackup()">📤 Export Backup JSON</button>
+                                <input type="file" id="import-profile-file" accept=".json" style="display:none" onchange="importProfileBackup(this)">
+                                <button class="icon-btn" onclick="document.getElementById('import-profile-file').click()">📥 Import Backup JSON</button>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -4032,6 +4099,1012 @@ func main() {
         ['a', 'b'].forEach(side => {
             document.getElementById(`compare-${side}-provider`).addEventListener('change', () => updateCompareProviderUI(side));
         });
+    
+        /* ========================================================================== */
+        /* ADVANCED USER-FRIENDLY EXTENSIONS                                         */
+        /* ========================================================================== */
+
+        // 1. Live Session Token & Cost Ticker
+        let sessionPromptTokens = 0;
+        let sessionCompTokens = 0;
+        let sessionTotalCost = 0.0;
+
+        function updateSessionTicker(pTokens, cTokens, modelId) {
+            sessionPromptTokens += (pTokens || 0);
+            sessionCompTokens += (cTokens || 0);
+            const p = getPrice(modelId) || { in: 0, out: 0 };
+            const cost = ((pTokens || 0) / 1000000 * (p.in || 0)) + ((cTokens || 0) / 1000000 * (p.out || 0));
+            sessionTotalCost += cost;
+
+            const tEl = document.getElementById('ticker-tokens');
+            const cEl = document.getElementById('ticker-cost');
+            if (tEl) tEl.textContent = (sessionPromptTokens + sessionCompTokens).toLocaleString();
+            if (cEl) cEl.textContent = sessionTotalCost.toFixed(4);
+        }
+
+        function resetSessionTicker() {
+            if (confirm('Reset session token and cost tracker?')) {
+                sessionPromptTokens = 0;
+                sessionCompTokens = 0;
+                sessionTotalCost = 0.0;
+                const tEl = document.getElementById('ticker-tokens');
+                const cEl = document.getElementById('ticker-cost');
+                if (tEl) tEl.textContent = '0';
+                if (cEl) cEl.textContent = '0.000';
+                toast('Session tracker reset.', 'info');
+            }
+        }
+
+        // 2. Command Palette (Ctrl+K)
+        const PALETTE_COMMANDS = [
+            { id: 'view-lister', title: '📋 Go to Model Lister & Batch Tester', action: () => switchView('lister') },
+            { id: 'view-comparer', title: '⚖️ Go to Two-Provider Model Comparer', action: () => switchView('comparer') },
+            { id: 'view-chat', title: '💬 Go to Multi-Turn Chat Playground', action: () => switchView('chat') },
+            { id: 'view-ab', title: '🥊 Go to A/B Blind Arena', action: () => switchView('ab') },
+            { id: 'view-leaderboard', title: '🏆 Go to Arena ELO Leaderboard', action: () => switchView('leaderboard') },
+            { id: 'view-suites', title: '🧪 Go to Benchmark Suites', action: () => switchView('suites') },
+            { id: 'view-analytics', title: '📊 Go to Performance Analytics', action: () => switchView('analytics') },
+            { id: 'view-localai', title: '🦙 Go to Local AI Hub', action: () => switchView('localai') },
+            { id: 'view-ollama', title: '📦 Go to Ollama Manager', action: () => switchView('ollama') },
+            { id: 'view-settings', title: '⚙️ Go to Server Settings & Key Vault', action: () => switchView('settings') },
+            { id: 'act-pricing', title: '💵 Open Pricing Modal & Sync', action: openPricing },
+            { id: 'act-templates', title: '📚 Open Prompt Templates Library', action: () => openTemplatesModal('lister') },
+            { id: 'act-theme', title: '🌙 Toggle Dark / Light Theme', action: toggleTheme },
+            { id: 'act-scan', title: '🔍 Scan Local AI Engines', action: () => { switchView('localai'); scanLocalAIServices(); } },
+            { id: 'act-clear-chat', title: '🗑️ Clear Chat Conversation', action: clearChat }
+        ];
+
+        function openCommandPalette() {
+            const modal = document.getElementById('palette-modal');
+            if (!modal) return;
+            modal.classList.add('open');
+            const input = document.getElementById('palette-search-input');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+            renderPaletteList(PALETTE_COMMANDS);
+        }
+
+        function closeCommandPalette() {
+            const modal = document.getElementById('palette-modal');
+            if (modal) modal.classList.remove('open');
+        }
+
+        function renderPaletteList(items) {
+            const listEl = document.getElementById('palette-commands-list');
+            if (!listEl) return;
+            if (!items.length) {
+                listEl.innerHTML = '<div style="color:var(--muted); padding:10px; text-align:center;">No matching commands</div>';
+                return;
+            }
+            listEl.innerHTML = items.map((cmd, i) => `
+                <div class="side-item" style="margin:0; width:100%; cursor:pointer;" onclick="executePaletteCommand(${i})">
+                    <span>${esc(cmd.title)}</span>
+                </div>
+            `).join('');
+        }
+
+        let currentFilteredPalette = PALETTE_COMMANDS;
+        function filterPaletteCommands() {
+            const q = (document.getElementById('palette-search-input')?.value || '').toLowerCase().trim();
+            currentFilteredPalette = PALETTE_COMMANDS.filter(c => c.title.toLowerCase().includes(q));
+            renderPaletteList(currentFilteredPalette);
+        }
+
+        function executePaletteCommand(index) {
+            const cmd = currentFilteredPalette[index];
+            if (cmd && cmd.action) {
+                closeCommandPalette();
+                cmd.action();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openCommandPalette();
+            }
+            if (e.key === 'Escape') {
+                closeCommandPalette();
+            }
+        });
+
+        // 3. Two-Provider Model Comparer: Fuzzy Matching & Price Arbitrage
+        let lastCompareData = null;
+
+        function normalizeModelName(id) {
+            if (!id) return '';
+            let s = id.toLowerCase().trim();
+            if (s.includes('/')) s = s.split('/').pop();
+            s = s.replace(/-\d{4}-\d{2}-\d{2}$/, '').replace(/-\d{4}$/, '').replace(/-latest$/, '');
+            return s;
+        }
+
+        function copyListerToCompare(side) {
+            const prov = document.getElementById('provider')?.value || 'openai';
+            const key = document.getElementById('api_key')?.value || '';
+            const url = document.getElementById('base_url')?.value || '';
+            const sel = document.getElementById(`compare-${side}-provider`);
+            if (sel) {
+                sel.value = prov;
+                updateCompareProviderUI(side);
+            }
+            const keyEl = document.getElementById(`compare-${side}-api_key`);
+            if (keyEl) keyEl.value = key;
+            const urlEl = document.getElementById(`compare-${side}-base_url`);
+            if (urlEl && url) urlEl.value = url;
+            toast(`Copied ${prov} configuration from Lister to Provider ${side.toUpperCase()}!`, 'success');
+        }
+
+        function reRenderComparison() {
+            if (lastCompareData) {
+                renderComparison(lastCompareData.a, lastCompareData.b, lastCompareData.aCfg, lastCompareData.bCfg);
+            }
+        }
+
+        // Override buildComparison to support fuzzy matching
+        const originalBuildComparison = typeof buildComparison === 'function' ? buildComparison : null;
+        buildComparison = function(aModels, bModels) {
+            const isFuzzy = document.getElementById('compare-fuzzy')?.checked ?? true;
+            if (!isFuzzy) {
+                return originalBuildComparison ? originalBuildComparison(aModels, bModels) : { both: [], onlyA: [], onlyB: [], aCount: aModels.length, bCount: bModels.length, aMap: new Map(), bMap: new Map() };
+            }
+
+            const aMap = dedupeModels(aModels);
+            const bMap = dedupeModels(bModels);
+
+            // Normalized maps: normKey -> originalId
+            const aNormMap = new Map();
+            aMap.forEach((meta, id) => { aNormMap.set(normalizeModelName(id), id); });
+
+            const bNormMap = new Map();
+            bMap.forEach((meta, id) => { bNormMap.set(normalizeModelName(id), id); });
+
+            const both = [];
+            const onlyA = [];
+            const onlyB = [];
+
+            aMap.forEach((meta, id) => {
+                const norm = normalizeModelName(id);
+                if (bNormMap.has(norm)) {
+                    both.push(id);
+                } else {
+                    onlyA.push(id);
+                }
+            });
+
+            bMap.forEach((meta, id) => {
+                const norm = normalizeModelName(id);
+                if (!aNormMap.has(norm)) {
+                    onlyB.push(id);
+                }
+            });
+
+            const sortIds = arr => arr.sort((a, b) => a.localeCompare(b));
+            sortIds(both); sortIds(onlyA); sortIds(onlyB);
+            return { both, onlyA, onlyB, aCount: aMap.size, bCount: bMap.size, aMap, bMap, aNormMap, bNormMap };
+        };
+
+        // Override renderComparison to display Price Arbitrage badges
+        const origRenderComparison = typeof renderComparison === 'function' ? renderComparison : null;
+        renderComparison = function(aModels, bModels, aCfg, bCfg) {
+            lastCompareData = { a: aModels, b: bModels, aCfg, bCfg };
+            const cmp = buildComparison(aModels, bModels);
+            const aLabel = PROVIDER_LABELS[aCfg.provider] || aCfg.provider;
+            const bLabel = PROVIDER_LABELS[bCfg.provider] || bCfg.provider;
+            const resultDiv = document.getElementById('compare-result');
+
+            let html = `<div class="compare-summary">
+                <div class="summary-card"><div class="num">${cmp.aCount}</div><div class="label">${esc(aLabel)}</div></div>
+                <div class="summary-card"><div class="num">${cmp.bCount}</div><div class="label">${esc(bLabel)}</div></div>
+                <div class="summary-card"><div class="num">${cmp.both.length}</div><div class="label">In both (matched)</div></div>
+                <div class="summary-card"><div class="num">${cmp.onlyA.length}</div><div class="label">Only ${esc(aLabel)}</div></div>
+                <div class="summary-card"><div class="num">${cmp.onlyB.length}</div><div class="label">Only ${esc(bLabel)}</div></div>
+            </div>`;
+
+            // Enhanced "In both" section with price contrast
+            if (cmp.both.length) {
+                const rows = cmp.both.map(id => {
+                    const norm = normalizeModelName(id);
+                    const bId = cmp.bNormMap ? cmp.bNormMap.get(norm) : id;
+                    const pA = getPrice(id) || getPrice(norm);
+                    const pB = getPrice(bId) || getPrice(norm);
+
+                    let priceHtml = '';
+                    if (pA && pB && pA.in && pB.in) {
+                        const delta = pA.in - pB.in;
+                        if (delta > 0.05) {
+                            priceHtml = `<span style="font-size:11px; margin-left:8px; color:var(--green); font-weight:600;">💰 ${esc(bLabel)} is $${delta.toFixed(2)}/1M cheaper!</span>`;
+                        } else if (delta < -0.05) {
+                            priceHtml = `<span style="font-size:11px; margin-left:8px; color:var(--green); font-weight:600;">💰 ${esc(aLabel)} is $${(-delta).toFixed(2)}/1M cheaper!</span>`;
+                        }
+                    }
+
+                    return `<tr>
+                        <td class="col-model">
+                            ${esc(id)}
+                            ${bId && bId !== id ? `<br><small style="color:var(--muted)">Matched with: <code>${esc(bId)}</code></small>` : ''}
+                            <button class="copy-btn" data-model="${esc(id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>
+                            ${priceHtml}
+                        </td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>`;
+                }).join('');
+
+                html += `<div class="compare-section">
+                    <h3>In both providers — ${cmp.both.length}</h3>
+                    <table class="compare-table">
+                        <thead><tr><th>Model</th><th>${esc(aLabel)}</th><th>${esc(bLabel)}</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+            }
+
+            html += renderCompareSection(`Only in ${aLabel}`, cmp.onlyA, cmp.aMap, cmp.bMap);
+            html += renderCompareSection(`Only in ${bLabel}`, cmp.onlyB, cmp.aMap, cmp.bMap);
+            resultDiv.innerHTML = html;
+        };
+
+        // 4. Multi-Turn Chat: Multi-Session Manager & Live SSE Streaming
+        let chatSessions = JSON.parse(localStorage.getItem('model-lister:chat-sessions') || '[]');
+        let currentChatSessionId = localStorage.getItem('model-lister:active-chat-session') || 'default';
+        let chatAttachedImageBase64 = null;
+
+        function initChatSessions() {
+            if (!chatSessions.length) {
+                chatSessions = [{ id: 'default', name: 'General Chat', messages: [] }];
+                localStorage.setItem('model-lister:chat-sessions', JSON.stringify(chatSessions));
+            }
+            renderChatSessionDropdown();
+            loadCurrentChatSession();
+            initChatClipboard();
+        }
+
+        function renderChatSessionDropdown() {
+            const sel = document.getElementById('chat-session-select');
+            if (!sel) return;
+            sel.innerHTML = chatSessions.map(s => `
+                <option value="${esc(s.id)}" ${s.id === currentChatSessionId ? 'selected' : ''}>${esc(s.name)}</option>
+            `).join('');
+        }
+
+        function createNewChatSession() {
+            const name = prompt('Enter a name for the new chat session:', `Session ${chatSessions.length + 1}`);
+            if (!name) return;
+            const newId = 'sess_' + Date.now();
+            chatSessions.push({ id: newId, name: name.trim(), messages: [] });
+            currentChatSessionId = newId;
+            saveChatSessions();
+            renderChatSessionDropdown();
+            loadCurrentChatSession();
+            toast(`Created session "${name}"`, 'success');
+        }
+
+        function renameCurrentChatSession() {
+            const sess = chatSessions.find(s => s.id === currentChatSessionId);
+            if (!sess) return;
+            const newName = prompt('Rename chat session:', sess.name);
+            if (!newName) return;
+            sess.name = newName.trim();
+            saveChatSessions();
+            renderChatSessionDropdown();
+            toast('Session renamed', 'success');
+        }
+
+        function deleteCurrentChatSession() {
+            if (chatSessions.length <= 1) {
+                toast('Cannot delete the last remaining chat session.', 'warning');
+                return;
+            }
+            if (!confirm('Are you sure you want to delete this chat session?')) return;
+            chatSessions = chatSessions.filter(s => s.id !== currentChatSessionId);
+            currentChatSessionId = chatSessions[0].id;
+            saveChatSessions();
+            renderChatSessionDropdown();
+            loadCurrentChatSession();
+            toast('Session deleted', 'info');
+        }
+
+        function saveChatSessions() {
+            localStorage.setItem('model-lister:chat-sessions', JSON.stringify(chatSessions));
+            localStorage.setItem('model-lister:active-chat-session', currentChatSessionId);
+        }
+
+        function switchChatSession(sessionId) {
+            currentChatSessionId = sessionId;
+            localStorage.setItem('model-lister:active-chat-session', currentChatSessionId);
+            loadCurrentChatSession();
+        }
+
+        function loadCurrentChatSession() {
+            const sess = chatSessions.find(s => s.id === currentChatSessionId) || chatSessions[0];
+            chatMessages = sess ? sess.messages : [];
+            const historyEl = document.getElementById('chatHistory');
+            if (!historyEl) return;
+            if (!chatMessages.length) {
+                historyEl.innerHTML = `<div class="chat-msg assistant">Hello! I am ready to test multi-turn conversations. Type your message below.</div>`;
+            } else {
+                historyEl.innerHTML = chatMessages.map((m, idx) => {
+                    const isUser = m.role === 'user';
+                    return `
+                        <div class="chat-msg ${isUser ? 'user' : 'assistant'}" id="chat-msg-${idx}">
+                            ${m.image_url ? `<img src="${m.image_url}" style="max-width:180px; border-radius:6px; display:block; margin-bottom:6px;">` : ''}
+                            <div class="msg-content">${formatMarkdownText(m.content)}</div>
+                            ${!isUser ? `<button class="copy-btn" style="margin-top:6px; font-size:10px;" onclick="forkChatTurn(${idx})">🔀 Fork from turn</button>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            }
+            historyEl.scrollTop = historyEl.scrollHeight;
+        }
+
+        function forkChatTurn(turnIndex) {
+            const sess = chatSessions.find(s => s.id === currentChatSessionId);
+            if (!sess) return;
+            const forkedMessages = JSON.parse(JSON.stringify(sess.messages.slice(0, turnIndex + 1)));
+            const newId = 'sess_' + Date.now();
+            const newName = `${sess.name} (Forked)`;
+            chatSessions.push({ id: newId, name: newName, messages: forkedMessages });
+            currentChatSessionId = newId;
+            saveChatSessions();
+            renderChatSessionDropdown();
+            loadCurrentChatSession();
+            toast(`Forked conversation into "${newName}"!`, 'success');
+        }
+
+        function initChatClipboard() {
+            const inputEl = document.getElementById('chatInput');
+            if (!inputEl) return;
+            inputEl.addEventListener('paste', (e) => {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        const file = item.getAsFile();
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            chatAttachedImageBase64 = event.target.result;
+                            renderChatImageChip(file.name || 'Screenshot.png');
+                        };
+                        reader.readAsDataURL(file);
+                        toast('Image attached from clipboard!', 'info');
+                    }
+                }
+            });
+        }
+
+        function handleChatImageFile(fileInput) {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                chatAttachedImageBase64 = event.target.result;
+                renderChatImageChip(file.name);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderChatImageChip(name) {
+            const chipsEl = document.getElementById('chat-image-chips');
+            if (!chipsEl) return;
+            chipsEl.innerHTML = `
+                <div class="image-chip">
+                    <img src="${chatAttachedImageBase64}">
+                    <span class="img-name">${esc(name)}</span>
+                    <button type="button" class="img-remove" onclick="removeChatImageChip()">×</button>
+                </div>
+            `;
+            chipsEl.style.display = 'flex';
+        }
+
+        function removeChatImageChip() {
+            chatAttachedImageBase64 = null;
+            const chipsEl = document.getElementById('chat-image-chips');
+            if (chipsEl) {
+                chipsEl.innerHTML = '';
+                chipsEl.style.display = 'none';
+            }
+        }
+
+        function formatMarkdownText(text) {
+            if (!text) return '';
+            let s = esc(text);
+            // Code blocks
+            s = s.replace(/```([a-zA-Z0-9_\-]+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                const cleanLang = lang || 'code';
+                return `<div style="margin:8px 0; background:var(--bg); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg2); padding:4px 8px; font-size:11px; color:var(--muted); font-family:monospace;">
+                        <span>${cleanLang}</span>
+                        <button type="button" class="copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); toast('Code copied!','success');">📋 Copy</button>
+                    </div>
+                    <pre style="margin:0; padding:8px 10px; font-family:monospace; font-size:12px; overflow-x:auto;"><code>${code}</code></pre>
+                </div>`;
+            });
+            // Inline code
+            s = s.replace(/`([^`]+)`/g, '<code style="background:var(--bg); padding:1px 4px; border-radius:3px; color:var(--accent2);">$1</code>');
+            // Bold
+            s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            // Line breaks
+            s = s.replace(/\n/g, '<br>');
+            return s;
+        }
+
+        // Live SSE Streaming sendChatMessage
+        sendChatMessage = async function() {
+            const inputEl = document.getElementById('chatInput');
+            const text = inputEl.value.trim();
+            if (!text && !chatAttachedImageBase64) return;
+
+            const provider = document.getElementById('chat-provider').value;
+            const model = document.getElementById('chat-model').value.trim();
+            const baseUrl = document.getElementById('chat-base-url').value.trim();
+            const apiKey = document.getElementById('chat-api-key').value.trim() || currentApiKey;
+            const system = (document.getElementById('chat-system')?.value || '').trim();
+
+            if (!model) { toast('Please specify a model ID for Chat.', 'warning'); return; }
+
+            const userMsg = { role: 'user', content: text, image_url: chatAttachedImageBase64 };
+            chatMessages.push(userMsg);
+            inputEl.value = '';
+
+            const historyEl = document.getElementById('chatHistory');
+            historyEl.innerHTML += `
+                <div class="chat-msg user">
+                    ${chatAttachedImageBase64 ? `<img src="${chatAttachedImageBase64}" style="max-width:180px; border-radius:6px; display:block; margin-bottom:6px;">` : ''}
+                    <div>${formatMarkdownText(text)}</div>
+                </div>
+            `;
+            removeChatImageChip();
+            historyEl.scrollTop = historyEl.scrollHeight;
+
+            const tempMsg = document.createElement('div');
+            tempMsg.className = 'chat-msg assistant';
+            tempMsg.innerHTML = '<span style="color:var(--yellow)">⚡ Streaming response...</span>';
+            historyEl.appendChild(tempMsg);
+            historyEl.scrollTop = historyEl.scrollHeight;
+
+            const ttftBadge = document.getElementById('chat-ttft-badge');
+            const ttftVal = document.getElementById('chat-ttft-val');
+            if (ttftBadge) ttftBadge.style.display = 'inline-block';
+
+            let accumulatedText = '';
+            try {
+                const res = await fetch('/test-chat-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: chatMessages,
+                        provider,
+                        model,
+                        api_key: apiKey,
+                        base_url: baseUrl,
+                        system: system,
+                        image_url: userMsg.image_url
+                    })
+                });
+
+                if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    throw new Error(errJson.error || `HTTP ${res.status}`);
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.substring(6).trim();
+                            if (dataStr === '[DONE]') break;
+                            try {
+                                const parsed = JSON.parse(dataStr);
+                                if (parsed.type === 'delta' && parsed.text) {
+                                    accumulatedText += parsed.text;
+                                    tempMsg.innerHTML = formatMarkdownText(accumulatedText);
+                                    historyEl.scrollTop = historyEl.scrollHeight;
+                                } else if (parsed.type === 'ttft' && parsed.ttft) {
+                                    if (ttftVal) ttftVal.textContent = Number(parsed.ttft).toFixed(2);
+                                } else if (parsed.type === 'done') {
+                                    if (parsed.usage) {
+                                        updateSessionTicker(parsed.usage.prompt_tokens, parsed.usage.completion_tokens, model);
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    }
+                }
+
+                chatMessages.push({ role: 'assistant', content: accumulatedText });
+                const sess = chatSessions.find(s => s.id === currentChatSessionId);
+                if (sess) {
+                    sess.messages = chatMessages;
+                    saveChatSessions();
+                }
+
+                // Add fork button
+                const forkBtn = document.createElement('button');
+                forkBtn.className = 'copy-btn';
+                forkBtn.style.marginTop = '6px';
+                forkBtn.style.fontSize = '10px';
+                forkBtn.textContent = '🔀 Fork from turn';
+                forkBtn.onclick = () => forkChatTurn(chatMessages.length - 1);
+                tempMsg.appendChild(document.createElement('br'));
+                tempMsg.appendChild(forkBtn);
+
+            } catch (err) {
+                tempMsg.innerHTML = `<span style="color:var(--red);">Error: ${esc(err.message)}</span>`;
+            }
+            historyEl.scrollTop = historyEl.scrollHeight;
+        };
+
+        clearChat = function() {
+            chatMessages = [];
+            const sess = chatSessions.find(s => s.id === currentChatSessionId);
+            if (sess) {
+                sess.messages = [];
+                saveChatSessions();
+            }
+            const historyEl = document.getElementById('chatHistory');
+            if (historyEl) historyEl.innerHTML = `<div class="chat-msg assistant">Chat cleared. Ready for your questions.</div>`;
+            const ttftBadge = document.getElementById('chat-ttft-badge');
+            if (ttftBadge) ttftBadge.style.display = 'none';
+        };
+
+        // 5. A/B Blind Arena: AI Judge & Qualitative Tags
+        function voteABWithTag(winner, tag) {
+            voteAB(winner);
+            toast(`Recorded vote for Response #${winner} with tag "${tag}"!`, 'success');
+        }
+
+        async function judgeCurrentABBattle() {
+            if (!abMapping.cand1 || !abMapping.cand2) {
+                toast('No active arena battle to evaluate.', 'warning');
+                return;
+            }
+
+            const promptText = (document.getElementById('abPrompt')?.value || '').trim();
+            const resp1 = document.getElementById('ab-resp-1')?.innerText || '';
+            const resp2 = document.getElementById('ab-resp-2')?.innerText || '';
+
+            if (!resp1 || !resp2) {
+                toast('Please run the battle test before requesting AI Judge evaluation.', 'warning');
+                return;
+            }
+
+            const verdictEl = document.getElementById('abJudgeVerdict');
+            if (verdictEl) {
+                verdictEl.style.display = 'block';
+                verdictEl.innerHTML = '<span style="color:var(--yellow);">⚖️ AI Judge evaluating candidate responses...</span>';
+            }
+
+            try {
+                const res = await fetch('/api/judge-responses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        judge_provider: 'openai',
+                        judge_model: 'gpt-4o',
+                        judge_api_key: currentApiKey,
+                        prompt: promptText,
+                        rubric: 'Correctness, reasoning depth, clarity, and adherence to instructions',
+                        candidates: [
+                            { id: '1', name: 'Response #1 (Blinded)', response: resp1 },
+                            { id: '2', name: 'Response #2 (Blinded)', response: resp2 }
+                        ]
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Judge evaluation failed');
+
+                const evalRes = data.evaluation || {};
+                const winnerId = evalRes.winner_id;
+                const summary = evalRes.summary || data.raw_output;
+
+                let html = `<h4 style="margin:0 0 8px 0; color:var(--purple);">⚖️ AI Judge Verdict: Winner is ${winnerId === 'tie' ? 'Tie 🤝' : 'Response #' + winnerId}</h4>`;
+                html += `<p style="font-size:13px; margin:0 0 8px 0;">${esc(summary)}</p>`;
+                if (evalRes.evaluations && Array.isArray(evalRes.evaluations)) {
+                    html += '<table class="compare-table" style="font-size:12px;"><thead><tr><th>Candidate</th><th>Score</th><th>Rationale</th></tr></thead><tbody>';
+                    evalRes.evaluations.forEach(ev => {
+                        html += `<tr><td><strong>Response #${ev.id}</strong></td><td><strong style="color:var(--accent);">${ev.score}/10</strong></td><td>${esc(ev.rationale || ev.strengths || '')}</td></tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+
+                if (verdictEl) verdictEl.innerHTML = html;
+            } catch (err) {
+                if (verdictEl) verdictEl.innerHTML = `<span style="color:var(--red);">Judge error: ${esc(err.message)}</span>`;
+            }
+        }
+
+        async function sendABFollowup() {
+            const inputEl = document.getElementById('abFollowupInput');
+            const followupText = (inputEl?.value || '').trim();
+            if (!followupText) return;
+            if (!abMapping.cand1 || !abMapping.cand2) {
+                toast('Start a battle first before sending follow-up questions.', 'warning');
+                return;
+            }
+
+            inputEl.value = '';
+            toast('Sending follow-up turn to both blind candidates...', 'info');
+
+            const appendTurn = async (cand, respDivId) => {
+                const div = document.getElementById(respDivId);
+                if (!div) return;
+                div.innerHTML += `\n\n--- Turn Follow-up: ${esc(followupText)} ---\nThinking...`;
+                try {
+                    const res = await fetch('/test-chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            provider: cand.provider,
+                            model: cand.model,
+                            api_key: cand.api_key,
+                            base_url: cand.base_url,
+                            messages: [
+                                { role: 'user', content: document.getElementById('abPrompt')?.value || '' },
+                                { role: 'assistant', content: div.innerText },
+                                { role: 'user', content: followupText }
+                            ]
+                        })
+                    });
+                    const d = await res.json();
+                    div.innerHTML = div.innerHTML.replace('Thinking...', d.response || 'No response');
+                } catch(e) {
+                    div.innerHTML = div.innerHTML.replace('Thinking...', 'Error: ' + e.message);
+                }
+            };
+
+            await Promise.all([
+                appendTurn(abMapping.cand1, 'ab-resp-1'),
+                appendTurn(abMapping.cand2, 'ab-resp-2')
+            ]);
+        }
+
+        // 6. Benchmark Suites: Multi-Model Evaluation Matrix
+        function toggleSuiteMatrixMode() {
+            const isMatrix = document.getElementById('suite-matrix-mode')?.checked;
+            const wrap = document.getElementById('suite-matrix-models-wrap');
+            const singleModelGroup = document.getElementById('suite-model')?.parentElement;
+            if (wrap) wrap.style.display = isMatrix ? 'block' : 'none';
+            if (singleModelGroup) singleModelGroup.style.display = isMatrix ? 'none' : 'block';
+        }
+
+        const origRunSuite = typeof runSuite === 'function' ? runSuite : null;
+        runSuite = async function() {
+            const isMatrix = document.getElementById('suite-matrix-mode')?.checked;
+            if (!isMatrix) {
+                return origRunSuite ? origRunSuite() : null;
+            }
+
+            const provider = document.getElementById('suite-provider').value;
+            const modelsInput = document.getElementById('suite-matrix-models')?.value || '';
+            const models = modelsInput.split(',').map(s => s.trim()).filter(Boolean);
+            const baseUrl = document.getElementById('suite-base-url').value.trim();
+            const apiKey = document.getElementById('suite-api-key').value.trim() || currentApiKey;
+            const suite = document.getElementById('suiteSelect').value;
+
+            if (!models.length) {
+                toast('Please enter at least one model ID for matrix evaluation.', 'warning');
+                return;
+            }
+
+            const resDiv = document.getElementById('suiteResults');
+            resDiv.innerHTML = '<p>⏳ Running Multi-Model Benchmark Matrix across models with assertion verification...</p>';
+
+            try {
+                const res = await fetch('/test-suite-matrix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider,
+                        models,
+                        api_key: apiKey,
+                        base_url: baseUrl,
+                        suite
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Benchmark Matrix failed');
+
+                const matrix = data.matrix || [];
+                let html = `<h4>Matrix Evaluation Results (${esc(suite)} suite):</h4>`;
+                html += '<div style="overflow-x:auto;"><table class="compare-table">';
+                html += '<thead><tr><th>Prompt &amp; Expected Assertions</th>' + models.map(m => `<th>${esc(m)}</th>`).join('') + '</tr></thead><tbody>';
+
+                let modelPassCounts = {};
+                models.forEach(m => modelPassCounts[m] = 0);
+
+                matrix.forEach(row => {
+                    html += `<tr>
+                        <td>
+                            <strong>${esc(row.prompt)}</strong>
+                            ${row.expected && row.expected.length ? `<br><small style="color:var(--muted)">Expected assertions: [${row.expected.map(esc).join(', ')}]</small>` : ''}
+                        </td>`;
+                    models.forEach(m => {
+                        const r = row.results && row.results[m];
+                        if (!r) {
+                            html += '<td>—</td>';
+                        } else {
+                            const pass = r.assertion_passed;
+                            if (pass) modelPassCounts[m]++;
+                            html += `<td>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span class="${pass ? 'yes' : 'no'}">${pass ? '✅ PASS' : '❌ FAIL'}</span>
+                                    <small style="color:var(--muted); font-family:monospace;">${r.time}s</small>
+                                </div>
+                                <div style="font-size:11px; color:var(--text2); max-height:80px; overflow-y:auto; margin-top:4px; font-family:monospace;">${esc(r.response)}</div>
+                            </td>`;
+                        }
+                    });
+                    html += '</tr>';
+                });
+
+                // Summary Row
+                html += '<tr style="background:var(--bg2); font-weight:700;"><td>Pass Rate Summary:</td>';
+                models.forEach(m => {
+                    const passPct = matrix.length ? Math.round((modelPassCounts[m] / matrix.length) * 100) : 0;
+                    html += `<td style="color:${passPct >= 70 ? 'var(--green)' : 'var(--red)'};">${modelPassCounts[m]}/${matrix.length} (${passPct}%)</td>`;
+                });
+                html += '</tr></tbody></table></div>';
+                resDiv.innerHTML = html;
+
+            } catch (err) {
+                resDiv.innerHTML = `<div class="error">Matrix Benchmark error: ${esc(err.message)}</div>`;
+            }
+        };
+
+        // 7. Settings: Provider Key Vault & Connection Ping
+        const VAULT_PROVIDERS = [
+            { id: 'openai', keyVar: 'OPENAI_API_KEY', label: 'OpenAI API' },
+            { id: 'claude', keyVar: 'ANTHROPIC_API_KEY', label: 'Anthropic Claude' },
+            { id: 'gemini', keyVar: 'GEMINI_API_KEY', label: 'Google Gemini' },
+            { id: 'openrouter', keyVar: 'OPENROUTER_API_KEY', label: 'OpenRouter' },
+            { id: 'deepseek', keyVar: 'DEEPSEEK_API_KEY', label: 'DeepSeek API' },
+            { id: 'groq', keyVar: 'GROQ_API_KEY', label: 'Groq Cloud' },
+            { id: 'mistral', keyVar: 'MISTRAL_API_KEY', label: 'Mistral AI' },
+            { id: 'xai', keyVar: 'XAI_API_KEY', label: 'xAI Grok' }
+        ];
+
+        async function initKeyVault() {
+            const container = document.getElementById('keyVaultContainer');
+            if (!container) return;
+
+            let savedKeys = {};
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.keys) savedKeys = data.keys;
+            } catch(e) {}
+
+            container.innerHTML = VAULT_PROVIDERS.map(p => {
+                const val = savedKeys[p.keyVar] || localStorage.getItem(`key_${p.id}`) || '';
+                return `
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <span style="width:120px; font-size:12px; font-weight:600; color:var(--text2);">${p.label}</span>
+                        <input type="password" id="vault-key-${p.id}" value="${esc(val)}" placeholder="API Key..." style="flex:1; padding:6px 8px; font-size:13px;" oninput="localStorage.setItem('key_${p.id}', this.value)">
+                        <button type="button" class="icon-btn" style="padding:4px 8px; font-size:12px;" onclick="pingProviderConnection('${p.id}')">⚡ Ping</button>
+                        <span id="vault-status-${p.id}" style="font-size:11px; width:70px;"></span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function pingProviderConnection(providerId) {
+            const input = document.getElementById(`vault-key-${providerId}`);
+            const statusEl = document.getElementById(`vault-status-${providerId}`);
+            const key = input ? input.value.trim() : '';
+
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--yellow)">...</span>';
+            try {
+                const res = await fetch('/api/ping-provider', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: providerId, api_key: key })
+                });
+                const d = await res.json();
+                if (d.ok) {
+                    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green); font-weight:700;">🟢 ${d.latency_ms}ms</span>`;
+                    toast(`${providerId} connection OK (${d.latency_ms}ms)!`, 'success');
+                } else {
+                    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red); font-weight:700;" title="${esc(d.error || '')}">🔴 Error</span>`;
+                    toast(`${providerId} failed: ${d.error || 'Connection failed'}`, 'error');
+                }
+            } catch (err) {
+                if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);">🔴 Failed</span>`;
+            }
+        }
+
+        async function saveKeyVault() {
+            const keysObj = {};
+            VAULT_PROVIDERS.forEach(p => {
+                const input = document.getElementById(`vault-key-${p.id}`);
+                if (input && input.value.trim()) {
+                    keysObj[p.keyVar] = input.value.trim();
+                }
+            });
+
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        default_base_url: document.getElementById('env-default-base-url')?.value || '',
+                        default_provider: document.getElementById('env-default-provider')?.value || 'openai',
+                        keys: keysObj
+                    })
+                });
+                const d = await res.json();
+                if (res.ok) {
+                    toast('Key Vault and settings saved to .env!', 'success');
+                } else {
+                    toast(d.error || 'Save failed', 'error');
+                }
+            } catch(e) {
+                toast(e.message, 'error');
+            }
+        }
+
+        function exportProfileBackup() {
+            const backup = {
+                settings: localStorage.getItem(SETTINGS_KEY),
+                prompts: localStorage.getItem(PROMPTS_KEY),
+                pricing: localStorage.getItem(PRICING_KEY),
+                elo: localStorage.getItem(ELO_KEY),
+                templates: localStorage.getItem(CUSTOM_TEMPLATES_KEY),
+                chatSessions: localStorage.getItem('model-lister:chat-sessions'),
+                exportDate: new Date().toISOString()
+            };
+            downloadFile('ai-model-lister-profile-backup.json', JSON.stringify(backup, null, 2), 'application/json');
+            toast('Profile backup exported!', 'success');
+        }
+
+        function importProfileBackup(fileInput) {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.settings) localStorage.setItem(SETTINGS_KEY, data.settings);
+                    if (data.prompts) localStorage.setItem(PROMPTS_KEY, data.prompts);
+                    if (data.pricing) localStorage.setItem(PRICING_KEY, data.pricing);
+                    if (data.elo) localStorage.setItem(ELO_KEY, data.elo);
+                    if (data.templates) localStorage.setItem(CUSTOM_TEMPLATES_KEY, data.templates);
+                    if (data.chatSessions) localStorage.setItem('model-lister:chat-sessions', data.chatSessions);
+                    toast('Profile backup successfully imported! Reloading...', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } catch(err) {
+                    toast('Invalid backup file: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 8. Pricing Modal: Live Sync & Workload Simulator
+        async function syncLivePricingFromOpenRouter() {
+            toast('Syncing live pricing rates from OpenRouter API...', 'info');
+            try {
+                const res = await fetch('/api/pricing/sync');
+                const data = await res.json();
+                if (data.success && data.pricing) {
+                    pricingMap = { ...pricingMap, ...data.pricing };
+                    savePricingOverrides(pricingMap);
+                    renderPricingTable();
+                    toast(`Successfully synced pricing for ${data.count} models!`, 'success');
+                } else {
+                    throw new Error(data.error || 'Sync failed');
+                }
+            } catch(e) {
+                toast(`Pricing sync error: ${e.message}`, 'error');
+            }
+        }
+
+        function updateCostSimulator() {
+            const pRange = document.getElementById('sim-prompt-range');
+            const cRange = document.getElementById('sim-comp-range');
+            const pVal = document.getElementById('sim-prompt-val');
+            const cVal = document.getElementById('sim-comp-val');
+            const resEl = document.getElementById('costSimResults');
+
+            if (!pRange || !cRange || !resEl) return;
+            const pTok = parseInt(pRange.value) || 0;
+            const cTok = parseInt(cRange.value) || 0;
+
+            if (pVal) pVal.textContent = pTok.toLocaleString();
+            if (cVal) cVal.textContent = cTok.toLocaleString();
+
+            const sampleModels = ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet', 'deepseek-chat', 'llama-3.3-70b-versatile'];
+            const estimates = sampleModels.map(m => {
+                const p = getPrice(m) || { in: 0, out: 0 };
+                const cost = (pTok / 1000000 * (p.in || 0)) + (cTok / 1000000 * (p.out || 0));
+                return `<strong>${esc(m)}:</strong> $${cost.toFixed(4)}`;
+            });
+
+            resEl.innerHTML = `<span style="color:var(--muted)">Estimated Cost for ${pTok.toLocaleString()} in / ${cTok.toLocaleString()} out:</span><br>` + estimates.join(' &nbsp;·&nbsp; ');
+        }
+
+        // 9. Local AI 1-Click Load into Lister & Chat
+        function loadModelToLister(provider, modelId, baseUrl) {
+            const provEl = document.getElementById('provider');
+            const urlEl = document.getElementById('base_url');
+            if (provEl) provEl.value = provider;
+            if (urlEl && baseUrl) urlEl.value = baseUrl;
+            switchView('lister');
+            const manualEl = document.getElementById('manual-model-input');
+            if (manualEl) manualEl.value = modelId;
+            addManualModel();
+            toast(`Loaded ${modelId} into Lister!`, 'success');
+        }
+
+        function loadModelToChat(provider, modelId, baseUrl) {
+            const provEl = document.getElementById('chat-provider');
+            const modelEl = document.getElementById('chat-model');
+            const urlEl = document.getElementById('chat-base-url');
+            if (provEl) {
+                provEl.value = provider;
+                updateChatProviderUI();
+            }
+            if (modelEl) modelEl.value = modelId;
+            if (urlEl && baseUrl) urlEl.value = baseUrl;
+            switchView('chat');
+            toast(`Loaded ${modelId} into Chat!`, 'success');
+        }
+
+        // Update scanLocalAIServices to attach 1-click test buttons
+        const origScanLocal = typeof scanLocalAIServices === 'function' ? scanLocalAIServices : null;
+        scanLocalAIServices = async function() {
+            if (origScanLocal) await origScanLocal();
+            // Attach 1-click test buttons
+            const grid = document.getElementById('localServicesGrid');
+            if (!grid) return;
+            grid.querySelectorAll('.service-card').forEach(card => {
+                const name = card.querySelector('.service-name')?.innerText || '';
+                const models = card.querySelectorAll('code');
+                models.forEach(codeEl => {
+                    const mName = codeEl.innerText;
+                    if (codeEl.parentElement && !codeEl.parentElement.querySelector('.local-load-btn')) {
+                        const btnWrap = document.createElement('span');
+                        btnWrap.className = 'local-load-btn';
+                        btnWrap.style.marginLeft = '6px';
+                        btnWrap.innerHTML = `
+                            <button type="button" class="copy-btn" title="Test in Lister" onclick="loadModelToLister('ollama', '${mName}', 'http://localhost:11434/v1')">📋 Test</button>
+                            <button type="button" class="copy-btn" title="Chat with model" onclick="loadModelToChat('ollama', '${mName}', 'http://localhost:11434/v1')">💬 Chat</button>
+                        `;
+                        codeEl.parentElement.appendChild(btnWrap);
+                    }
+                });
+            });
+        };
+
+        // Initialize extended components on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            initChatSessions();
+            initKeyVault();
+            updateCostSimulator();
+        });
+
     </script>
+
+    <!-- Command Palette (Ctrl+K) Modal -->
+    <div class="modal-overlay" id="palette-modal" onclick="if(event.target===this)closeCommandPalette()">
+        <div class="modal" style="max-width: 580px; padding: 16px;">
+            <div style="display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:10px;">
+                <span style="font-size:18px;">🔍</span>
+                <input type="text" id="palette-search-input" placeholder="Type a command or jump to view (e.g. Chat, Arena, Ollama, Theme)..." oninput="filterPaletteCommands()" style="border:none; background:transparent; font-size:15px; outline:none; flex:1;">
+                <kbd style="font-size:11px; background:var(--bg); border:1px solid var(--border); padding:2px 6px; border-radius:4px; color:var(--muted);">ESC to close</kbd>
+            </div>
+            <div id="palette-commands-list" style="display:flex; flex-direction:column; gap:6px; max-height:360px; overflow-y:auto;"></div>
+        </div>
+    </div>
+
 </body>
 </html>
