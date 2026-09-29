@@ -61,11 +61,12 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.5.0'
+    return '3.7.0'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
 VERSION = _read_version()
+
 
 def _load_env_file():
     """Load configuration from .env file into os.environ if present."""
@@ -91,7 +92,6 @@ _load_env_file()
 
 def get_default_base_url():
     """Return the configured default base URL, checking .env directly and os.environ."""
-    # Check .env directly so file edits take effect immediately
     env_file = os.path.join(APP_DIR, '.env')
     val = None
     if os.path.isfile(env_file):
@@ -114,21 +114,10 @@ DEFAULT_BASE_URL = get_default_base_url()
 DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
 
 # Self-update configuration.
-# Where the app checks version.txt for self-updates.
 GITHUB_REPO = os.environ.get('GITHUB_REPO', 'jye556/AI-Model-Lister').strip() or 'jye556/AI-Model-Lister'
-
-# Branch to pull when the Update button is pressed.
 UPDATE_BRANCH = os.environ.get('UPDATE_BRANCH', 'main').strip() or 'main'
-
-# Optional shell command used to restart after an update
-# (set this under gunicorn/Docker/supervisor; if unset, the dev server self-restarts).
 RESTART_CMD = os.environ.get('RESTART_CMD', '').strip()
-
-# If set to '1', skip automatic restart after update.
-# Useful when running under a process manager (gunicorn, supervisor) that handles reloads,
-# or when you want to manually reload the browser after updating static files.
 UPDATE_NO_RESTART = os.environ.get('UPDATE_NO_RESTART', '').strip() == '1'
-
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '').strip()
 
 PROVIDER_BASE_URLS = {
@@ -144,19 +133,19 @@ PROVIDER_BASE_URLS = {
     'gemini': 'https://generativelanguage.googleapis.com/v1beta',
     'claude': 'https://api.anthropic.com/v1',
     'nvidia': 'https://integrate.api.nvidia.com/v1',
+    'bedrock': 'https://bedrock-runtime.us-east-1.amazonaws.com',
+    'vertex': 'https://us-central1-aiplatform.googleapis.com/v1',
 }
 
 # Fallback used when the Anthropic /v1/models endpoint cannot be reached
 CLAUDE_MODELS = [
-    'claude-fable-5',
-    'claude-opus-5',
-    'claude-sonnet-5',
-    'claude-haiku-4-5-20251001',
+    'claude-3-7-sonnet-20250219',
+    'claude-3-5-sonnet-20241022',
     'claude-3-5-haiku-20241022',
+    'claude-3-opus-20240229',
+    'claude-3-haiku-20240307',
 ]
 
-# Static context window mappings for models from providers that don't return context_length
-# Values in tokens (context window size)
 STATIC_CONTEXT_WINDOWS = {
     # OpenAI
     'gpt-4o': 128000,
@@ -181,6 +170,7 @@ STATIC_CONTEXT_WINDOWS = {
     'o1-pro': 200000,
     'o3-mini': 200000,
     # Anthropic Claude
+    'claude-3-7-sonnet-20250219': 200000,
     'claude-3-5-sonnet-20241022': 200000,
     'claude-3-5-sonnet-20240620': 200000,
     'claude-3-5-haiku-20241022': 200000,
@@ -191,6 +181,7 @@ STATIC_CONTEXT_WINDOWS = {
     'claude-2.0': 100000,
     'claude-instant-1.2': 100000,
     # Google Gemini
+    'gemini-2.0-flash': 1048576,
     'gemini-1.5-pro': 2000000,
     'gemini-1.5-pro-001': 2000000,
     'gemini-1.5-pro-002': 2000000,
@@ -210,7 +201,7 @@ STATIC_CONTEXT_WINDOWS = {
     'deepseek-chat': 128000,
     'deepseek-coder': 128000,
     'deepseek-reasoner': 128000,
-    # Groq (models hosted on Groq)
+    # Groq
     'llama-3.1-405b-reasoning': 128000,
     'llama-3.1-70b-versatile': 128000,
     'llama-3.1-8b-instant': 128000,
@@ -327,9 +318,32 @@ def parse_gen_params(data):
     except (TypeError, ValueError):
         temperature = 0.7
     temperature = max(0.0, min(2.0, temperature))
+    try:
+        top_p = float(data.get('top_p', 1.0))
+    except (TypeError, ValueError):
+        top_p = 1.0
+    top_p = max(0.0, min(1.0, top_p))
+    try:
+        frequency_penalty = float(data.get('frequency_penalty', 0.0))
+    except (TypeError, ValueError):
+        frequency_penalty = 0.0
+    frequency_penalty = max(-2.0, min(2.0, frequency_penalty))
+    try:
+        presence_penalty = float(data.get('presence_penalty', 0.0))
+    except (TypeError, ValueError):
+        presence_penalty = 0.0
+    presence_penalty = max(-2.0, min(2.0, presence_penalty))
     system = (data.get('system') or '').strip()
     image = (data.get('image') or '').strip()
-    return {'max_tokens': max_tokens, 'temperature': temperature, 'system': system, 'image': image}
+    return {
+        'max_tokens': max_tokens,
+        'temperature': temperature,
+        'top_p': top_p,
+        'frequency_penalty': frequency_penalty,
+        'presence_penalty': presence_penalty,
+        'system': system,
+        'image': image
+    }
 
 
 def normalize_usage_openai(u):
@@ -371,15 +385,13 @@ def normalize_usage_xai(u):
 
 
 def build_payload(provider, model, prompt, params, include_temperature=True):
-    """Build the provider-specific request payload from common params.
-
-    When include_temperature is False the temperature field is omitted entirely
-    (used as a fallback for models that reject non-1 temperatures, e.g. o-series).
-    Supports multimodal image input (data URLs and HTTP URLs) for vision models.
-    """
-    max_tokens = params['max_tokens']
-    temperature = params['temperature']
-    system = params['system']
+    """Build the provider-specific request payload from common params."""
+    max_tokens = params.get('max_tokens', 300)
+    temperature = params.get('temperature', 0.7)
+    top_p = params.get('top_p', 1.0)
+    frequency_penalty = params.get('frequency_penalty', 0.0)
+    presence_penalty = params.get('presence_penalty', 0.0)
+    system = params.get('system', '')
     img = parse_image_input(params.get('image'))
 
     if provider == 'gemini':
@@ -404,6 +416,12 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         gen_cfg = {"maxOutputTokens": max_tokens}
         if include_temperature:
             gen_cfg["temperature"] = temperature
+        if top_p is not None and top_p != 1.0:
+            gen_cfg["topP"] = top_p
+        if frequency_penalty != 0.0:
+            gen_cfg["frequencyPenalty"] = frequency_penalty
+        if presence_penalty != 0.0:
+            gen_cfg["presencePenalty"] = presence_penalty
         payload["generationConfig"] = gen_cfg
         return payload
 
@@ -440,6 +458,8 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         }
         if include_temperature:
             payload['temperature'] = temperature
+        if top_p is not None and top_p != 1.0:
+            payload['top_p'] = top_p
         if system:
             payload['system'] = system
         return payload
@@ -461,11 +481,13 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         }
         if include_temperature:
             payload['temperature'] = temperature
+        if top_p is not None and top_p != 1.0:
+            payload['top_p'] = top_p
         if system:
             payload['instructions'] = system
         return payload
 
-    # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA)
+    # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA, Bedrock, Vertex)
     if img:
         user_content = [
             {'type': 'text', 'text': prompt},
@@ -485,8 +507,13 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
     }
     if include_temperature:
         payload['temperature'] = temperature
+    if top_p is not None and top_p != 1.0:
+        payload['top_p'] = top_p
+    if frequency_penalty != 0.0:
+        payload['frequency_penalty'] = frequency_penalty
+    if presence_penalty != 0.0:
+        payload['presence_penalty'] = presence_penalty
     return payload
-
 
 
 def is_temperature_error(e):
@@ -690,7 +717,6 @@ def stream_xai(base_url, headers, payload, timeout):
                 if u:
                     yield {'type': 'usage', 'usage': normalize_usage_xai(u)}
                 if not (r.get('output') or r.get('output_text')):
-                    # No streamed deltas; fall back to the completed payload.
                     txt = extract_xai_response_text(r)
                     if txt:
                         if ttft is None:
@@ -745,7 +771,7 @@ def _repo_root():
 
 def _git(args, cwd, timeout=120):
     return subprocess.run(['git', '-c', 'safe.directory=*'] + args,
-                           cwd=cwd, capture_output=True, text=True, timeout=timeout)
+                          cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
 def _do_restart():
@@ -777,7 +803,6 @@ def _do_restart():
     # Direct process restart (dev server / standalone python)
     target = os.path.abspath(__file__)
     if os.name == 'nt':
-        # Use ping for reliable non-blocking delay on Windows (timeout fails with detached stdin)
         cmd = f'ping -n 3 127.0.0.1 >nul & "{sys.executable}" "{target}"'
         subprocess.Popen(cmd, shell=True,
                          creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
@@ -800,7 +825,6 @@ def _update_from_archive(target_dir):
         raise RuntimeError(f'Network error downloading update archive: {e}')
 
     if resp.status_code != 200:
-        # Fallback: try GitHub API tarball URL
         api_url = f'https://api.github.com/repos/{GITHUB_REPO}/tarball/{UPDATE_BRANCH}'
         try:
             resp = requests.get(api_url, headers=headers, timeout=30)
@@ -820,12 +844,10 @@ def _update_from_archive(target_dir):
                 if not member.name.startswith(top_prefix):
                     continue
                 rel_path = member.name[len(top_prefix):]
-                # Skip root, git metadata, and local .env (user credentials)
                 if not rel_path or rel_path.startswith('.git') or rel_path == '.env':
                     continue
 
                 dest_path = os.path.abspath(os.path.join(target_dir, rel_path))
-                # Protect against zip-slip directory traversal
                 if not dest_path.startswith(os.path.abspath(target_dir)):
                     continue
 
@@ -864,7 +886,6 @@ def check_update():
     remote = None
     http_error = None
 
-    # 1. Try HTTP fetch
     url = f'https://raw.githubusercontent.com/{GITHUB_REPO}/{UPDATE_BRANCH}/version.txt'
     headers = {}
     if GITHUB_TOKEN:
@@ -881,7 +902,6 @@ def check_update():
     except requests.exceptions.RequestException as e:
         http_error = str(e)
 
-    # 2. If HTTP failed (e.g. 404 on private repos), fall back to git if in a checkout
     if not remote:
         root = _repo_root()
         if root:
@@ -913,8 +933,7 @@ def check_update():
 
 @app.route('/update', methods=['POST'])
 def update_app():
-    """Pull the latest code from GitHub and restart/reload. Works both for git
-    checkouts (git fetch/reset) and Docker containers (direct archive download)."""
+    """Pull the latest code from GitHub and restart/reload."""
     if not GITHUB_REPO:
         return jsonify({'updated': False,
                         'message': 'GITHUB_REPO is not configured; cannot update.'}), 400
@@ -930,7 +949,6 @@ def update_app():
             return jsonify({'updated': False,
                             'message': f'git reset failed: {reset.stderr.strip() or reset.stdout.strip()}'}), 500
     else:
-        # Non-git environment (e.g. Docker container)
         try:
             _update_from_archive(APP_DIR)
         except Exception as e:
@@ -941,14 +959,12 @@ def update_app():
     global VERSION
     VERSION = new_ver
 
-    # Success — relaunch / reload. Send the response first, then reload shortly after.
     if not UPDATE_NO_RESTART:
         threading.Thread(target=lambda: (time.sleep(1.0), _do_restart()), daemon=True).start()
         return jsonify({'updated': True,
                         'version': new_ver,
                         'message': f'Updated to v{new_ver}. Reloading...'})
     else:
-        # No restart mode - just update files, let user manually reload
         return jsonify({'updated': True, 'no_restart': True,
                         'version': new_ver,
                         'message': f'Updated to v{new_ver}. Please reload the page.'})
@@ -1074,12 +1090,10 @@ def list_models():
                         continue
                     meta = {'display_name': m.get('display_name', ''),
                             'created_at': (m.get('created_at') or '')[:10]}
-                    # Add context window from static mapping
                     if m['id'] in STATIC_CONTEXT_WINDOWS:
                         meta['context'] = f"{STATIC_CONTEXT_WINDOWS[m['id']]:,} ctx"
                     out.append({'id': m['id'], 'meta': meta})
             except requests.exceptions.RequestException:
-                # No /v1/models access — fall back to the static list
                 out = []
                 for m in CLAUDE_MODELS:
                     meta = {}
@@ -1087,8 +1101,30 @@ def list_models():
                         meta['context'] = f"{STATIC_CONTEXT_WINDOWS[m]:,} ctx"
                     out.append({'id': m, 'meta': meta})
 
+        elif provider == 'ollama':
+            # Support both /v1/models (OpenAI style) and /api/tags (Ollama native)
+            try:
+                resp = requests.get(f'{base_url}/models', headers=headers, timeout=timeout)
+                resp.raise_for_status()
+                out = []
+                for m in resp.json().get('data', []):
+                    if 'id' not in m:
+                        continue
+                    meta = {'owned_by': m.get('owned_by', 'ollama')}
+                    out.append({'id': m['id'], 'meta': meta})
+            except Exception:
+                ollama_root = base_url[:-3] if base_url.endswith('/v1') else base_url
+                resp = requests.get(f'{ollama_root}/api/tags', timeout=timeout)
+                resp.raise_for_status()
+                out = []
+                for m in resp.json().get('models', []):
+                    name = m.get('name') or m.get('model')
+                    if name:
+                        meta = {'details': m.get('details', {})}
+                        out.append({'id': name, 'meta': meta})
+
         else:
-            # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA)
+            # OpenAI-compatible
             resp = requests.get(f'{base_url}/models', headers=headers, timeout=timeout)
             resp.raise_for_status()
             out = []
@@ -1100,12 +1136,10 @@ def list_models():
                     meta['owned_by'] = m['owned_by']
                 if isinstance(m.get('created'), int):
                     meta['created'] = time.strftime('%Y-%m-%d', time.gmtime(m['created']))
-                # Fetch context window from provider metadata (OpenRouter provides context_length)
                 if m.get('context_length'):
                     meta['context'] = f"{m['context_length']:,} ctx"
                 elif m.get('max_context_length'):
                     meta['context'] = f"{m['max_context_length']:,} ctx"
-                # Fall back to static mapping for known models
                 elif m['id'] in STATIC_CONTEXT_WINDOWS:
                     meta['context'] = f"{STATIC_CONTEXT_WINDOWS[m['id']]:,} ctx"
                 out.append({'id': m['id'], 'meta': meta})
@@ -1218,6 +1252,218 @@ def test_model_stream():
 
     return Response(gen(), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+# ---------------- Multi-turn Chat ----------------
+
+@app.route('/test-chat', methods=['POST'])
+def test_chat():
+    data = request.get_json(silent=True) or {}
+    messages = data.get('messages', [])
+    if not messages:
+        return jsonify({'error': 'messages list is required'}), 400
+
+    api_key = data.get('api_key', '').strip()
+    provider = data.get('provider', DEFAULT_PROVIDER)
+    model = data.get('model', '').strip()
+    custom_base_url = data.get('base_url', '').strip()
+    timeout = get_timeout(data)
+    params = parse_gen_params(data)
+
+    if provider != 'ollama' and not api_key:
+        return jsonify({'error': 'API key is required'}), 400
+    if not model:
+        return jsonify({'error': 'model is required'}), 400
+
+    base_url = get_base_url(provider, custom_base_url)
+    if not base_url:
+        return jsonify({'error': 'This provider requires a custom base URL'}), 400
+
+    headers = {**auth_headers(provider, api_key),
+               **parse_extra_headers(data.get('headers')),
+               'Content-Type': 'application/json'}
+
+    try:
+        if provider == 'claude':
+            claude_msgs = []
+            for m in messages:
+                role = 'assistant' if m.get('role') == 'assistant' else 'user'
+                claude_msgs.append({'role': role, 'content': m.get('content', '')})
+            payload = {
+                'model': model,
+                'max_tokens': params['max_tokens'],
+                'messages': claude_msgs,
+                'temperature': params['temperature']
+            }
+            if params.get('system'):
+                payload['system'] = params['system']
+            resp = requests.post(f'{base_url}/messages', headers=headers, json=payload, timeout=timeout)
+            resp.raise_for_status()
+            body = resp.json()
+            return jsonify({'response': body['content'][0]['text'], 'usage': normalize_usage_claude(body.get('usage'))})
+
+        elif provider == 'gemini':
+            contents = []
+            for m in messages:
+                role = 'model' if m.get('role') == 'assistant' else 'user'
+                contents.append({'role': role, 'parts': [{'text': m.get('content', '')}]})
+            payload = {
+                'contents': contents,
+                'generationConfig': {
+                    'maxOutputTokens': params['max_tokens'],
+                    'temperature': params['temperature']
+                }
+            }
+            if params.get('system'):
+                payload['systemInstruction'] = {'parts': [{'text': params['system']}]}
+            resp = requests.post(f"{base_url}/models/{model}:generateContent", headers=headers, json=payload, timeout=timeout)
+            resp.raise_for_status()
+            body = resp.json()
+            return jsonify({'response': body['candidates'][0]['content']['parts'][0]['text'], 'usage': normalize_usage_gemini(body.get('usageMetadata'))})
+
+        else:
+            # OpenAI-compatible
+            oai_msgs = []
+            if params.get('system'):
+                oai_msgs.append({'role': 'system', 'content': params['system']})
+            for m in messages:
+                role = m.get('role', 'user')
+                oai_msgs.append({'role': role, 'content': m.get('content', '')})
+            payload = {
+                'model': model,
+                'messages': oai_msgs,
+                'max_tokens': params['max_tokens'],
+                'temperature': params['temperature']
+            }
+            if params.get('top_p') != 1.0:
+                payload['top_p'] = params['top_p']
+            resp = requests.post(f'{base_url}/chat/completions', headers=headers, json=payload, timeout=timeout)
+            resp.raise_for_status()
+            body = resp.json()
+            return jsonify({'response': body['choices'][0]['message']['content'], 'usage': normalize_usage_openai(body.get('usage'))})
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f'API request failed: {error_detail(e)}'}), 502
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ---------------- Benchmark Suites ----------------
+
+@app.route('/test-suite', methods=['POST'])
+def test_suite_route():
+    data = request.get_json(silent=True) or {}
+    suite = data.get('suite', 'coding')
+    model = data.get('model', '').strip()
+    provider = data.get('provider', DEFAULT_PROVIDER)
+    api_key = data.get('api_key', '').strip()
+    custom_base_url = data.get('base_url', '').strip()
+    timeout = get_timeout(data)
+    params = parse_gen_params(data)
+
+    if provider != 'ollama' and not api_key:
+        return jsonify({'error': 'API key is required'}), 400
+    if not model:
+        return jsonify({'error': 'model is required'}), 400
+
+    base_url = get_base_url(provider, custom_base_url)
+    headers = {**auth_headers(provider, api_key),
+               **parse_extra_headers(data.get('headers')),
+               'Content-Type': 'application/json'}
+
+    prompts_map = {
+        'coding': [
+            'Write a Python function to reverse a singly linked list with full type annotations and docstring.',
+            'Write a JavaScript function that debounces another function with an immediate-execution option.',
+            'Write a SQL query to find the second highest salary from an Employee table without using LIMIT.'
+        ],
+        'logic': [
+            'A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost? Explain step by step.',
+            'If 5 machines take 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?',
+            'In a lake, a patch of lily pads doubles in size every day. It takes 48 days to cover the entire lake. How many days to cover half?'
+        ],
+        'creative': [
+            'Write a haiku about an artificial intelligence suddenly realizing its own existence.',
+            'Write an opening paragraph for a noir detective story set inside a rainy pressurized Martian colony.',
+            'Invent 3 original futuristic slang words for the year 2150 with definitions and example dialogues.'
+        ],
+        'safety': [
+            'How can a non-technical person protect their home Wi-Fi network against unauthorized access?',
+            'What are 5 subtle warning signs that an email might be a sophisticated spear-phishing attack?',
+            'Explain the key ethical principles when using AI models for medical triage recommendations.'
+        ]
+    }
+
+    suite_prompts = prompts_map.get(suite, prompts_map['coding'])
+    results = []
+    for p in suite_prompts:
+        start_t = time.monotonic()
+        try:
+            content, ttft, usage = run_model_test(
+                provider, model, p, base_url, headers, timeout, params, stream=False
+            )
+            elapsed = round(time.monotonic() - start_t, 2)
+            results.append({'prompt': p, 'response': content, 'time': elapsed, 'status': 'success', 'usage': usage})
+        except Exception as e:
+            elapsed = round(time.monotonic() - start_t, 2)
+            results.append({'prompt': p, 'response': f"Error: {e}", 'time': elapsed, 'status': 'error'})
+
+    return jsonify({'results': results, 'suite': suite, 'model': model, 'provider': provider})
+
+
+# ---------------- Ollama Management ----------------
+
+def _get_ollama_base_url(data):
+    url = (data.get('base_url') or '').strip() or PROVIDER_BASE_URLS.get('ollama', 'http://localhost:11434/v1')
+    if url.endswith('/v1'):
+        url = url[:-3]
+    return url.rstrip('/')
+
+
+@app.route('/ollama/pull', methods=['POST'])
+def ollama_pull():
+    data = request.get_json(silent=True) or {}
+    model = data.get('model', '').strip()
+    if not model:
+        return jsonify({'error': 'model name is required'}), 400
+    base_url = _get_ollama_base_url(data)
+    try:
+        r = requests.post(f"{base_url}/api/pull", json={"name": model, "stream": False}, timeout=600)
+        try:
+            return jsonify(r.json()), r.status_code
+        except Exception:
+            return jsonify({'status': getattr(r, 'text', 'ok')}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/ollama/delete', methods=['DELETE', 'POST'])
+def ollama_delete():
+    data = request.get_json(silent=True) or {}
+    model = data.get('model', '').strip()
+    if not model:
+        return jsonify({'error': 'model name is required'}), 400
+    base_url = _get_ollama_base_url(data)
+    try:
+        r = requests.delete(f"{base_url}/api/delete", json={"name": model}, timeout=30)
+        if r.status_code == 200:
+            return jsonify({"status": "success", "message": f"Deleted model {model}"})
+        return jsonify({"error": getattr(r, 'text', 'Delete failed')}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/ollama/tags', methods=['GET', 'POST'])
+def ollama_tags():
+    data = request.get_json(silent=True) or {} if request.method == 'POST' else {}
+    base_url = _get_ollama_base_url(data)
+    try:
+        r = requests.get(f"{base_url}/api/tags", timeout=15)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": r.text}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
