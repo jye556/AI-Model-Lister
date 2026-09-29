@@ -149,7 +149,14 @@ Notes:
 | `POST` | `/test-model` | Run one model test (returns response + TTFT + usage as JSON) |
 | `POST` | `/test-model-stream` | Live-stream a model test as SSE (`ttft` / `delta` / `usage` / `retry` / `done`) |
 | `POST` | `/test-chat` | Multi-turn conversation chat testing across providers |
+| `POST` | `/test-chat-stream` | Real-time SSE streaming multi-turn chat |
 | `POST` | `/test-suite` | Run evaluation prompt suites (Coding, Logic, Creative, Safety) |
+| `POST` | `/test-suite-matrix` | Run benchmark prompt suites across multiple models with keyword & regex assertion checks |
+| `GET` / `POST` | `/api/pricing/sync` | Sync live per-1M token pricing from OpenRouter API |
+| `GET` / `POST` | `/api/local-health` | Scan and auto-discover local inference engines (Ollama, LM Studio, vLLM, LocalAI, Jan) |
+| `POST` | `/api/generate-code` | Generate ready-to-run cURL, Python SDK, Requests, and JavaScript code snippets |
+| `POST` | `/api/evaluate-assertion` | Test responses against assertions (keywords, regex, json schema, length) |
+| `GET` | `/api/prompt-templates` | Curated system prompt presets catalog |
 | `GET` / `POST` | `/ollama/tags` | List local installed Ollama model tags |
 | `POST` | `/ollama/pull` | Pull and download new model to Ollama |
 | `DELETE` / `POST` | `/ollama/delete` | Delete model from local Ollama instance |

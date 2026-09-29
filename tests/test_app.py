@@ -651,7 +651,7 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(app_module._parse_version_tuple('v3.5.8'), (3, 5, 8))
         self.assertEqual(app_module._parse_version_tuple(''), ())
         self.assertGreater(app_module._parse_version_tuple('3.5.10'), app_module._parse_version_tuple('3.5.9'))
-        self.assertGreater(app_module._parse_version_tuple('3.7.0'), app_module._parse_version_tuple('3.5.9'))
+        self.assertGreater(app_module._parse_version_tuple('3.8.0'), app_module._parse_version_tuple('3.5.9'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
@@ -761,8 +761,226 @@ class NewFeaturesTests(unittest.TestCase):
             resp = self.client.post('/ollama/pull', json={'model': 'llama3:latest'})
         self.assertEqual(resp.status_code, 200)
 
+    def test_local_health(self):
+        fake = FakeResponse(json_data={'models': [{'name': 'qwen2.5:7b'}]}, status_code=200)
+        with mock.patch.object(app_module.requests, 'get', return_value=fake):
+            resp = self.client.get('/api/local-health')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('services', body)
+        self.assertTrue(len(body['services']) >= 4)
+        ollama_svc = next((s for s in body['services'] if s['name'] == 'Ollama'), None)
+        self.assertIsNotNone(ollama_svc)
+        self.assertTrue(ollama_svc['online'])
+
+    def test_judge_responses(self):
+        judge_output = '{"evaluations": [{"id": "model_1", "name": "gpt-4o", "score": 9.2, "strengths": "accurate", "weaknesses": "none", "rationale": "great"}], "winner_id": "model_1", "summary": "Model 1 is superior"}'
+        fake = FakeResponse(json_data={'choices': [{'message': {'content': judge_output}}]})
+        with mock.patch.object(app_module.requests, 'post', return_value=fake):
+            resp = self.client.post('/api/judge-responses', json={
+                'judge_provider': 'openai',
+                'judge_model': 'gpt-4o',
+                'judge_api_key': 'sk-test',
+                'prompt': 'Write a quick sort algorithm in python',
+                'rubric': 'Code correctness and explanation',
+                'candidates': [
+                    {'id': 'model_1', 'name': 'gpt-4o', 'response': 'def quicksort(arr): pass'}
+                ]
+            })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('evaluation', body)
+        self.assertEqual(body['evaluation']['winner_id'], 'model_1')
+
+    def test_json_mode_payload(self):
+        schema = {"type": "object", "properties": {"score": {"type": "number"}}, "required": ["score"]}
+        params = {'json_mode': True, 'json_schema': schema, 'max_tokens': 200, 'temperature': 0.5}
+        
+        # OpenAI
+        payload_openai = app_module.build_payload('openai', 'gpt-4o', 'Give me score', params)
+        self.assertIn('response_format', payload_openai)
+        self.assertEqual(payload_openai['response_format']['type'], 'json_schema')
+        
+        # Gemini
+        payload_gemini = app_module.build_payload('gemini', 'gemini-1.5-pro', 'Give me score', params)
+        self.assertEqual(payload_gemini['generationConfig']['responseMimeType'], 'application/json')
+        self.assertEqual(payload_gemini['generationConfig']['responseSchema'], schema)
+        
+        # Claude
+        payload_claude = app_module.build_payload('claude', 'claude-3-5-sonnet', 'Give me score', params)
+        self.assertIn('JSON Schema', payload_claude['system'])
+
+    def test_validate_output_json_schema(self):
+        schema = {"type": "object", "properties": {"count": {"type": "integer"}}, "required": ["count"]}
+        
+        # Valid JSON matching schema
+        res1 = app_module.validate_output_json_schema('{"count": 42}', schema)
+        self.assertTrue(res1['is_json'])
+        self.assertTrue(res1['schema_valid'])
+        
+        # Valid JSON violating schema
+        res2 = app_module.validate_output_json_schema('{"count": "not an int"}', schema)
+        self.assertTrue(res2['is_json'])
+        self.assertFalse(res2['schema_valid'])
+        
+        # Invalid JSON text
+        res3 = app_module.validate_output_json_schema('Not valid json', schema)
+        self.assertFalse(res3['is_json'])
+
+    def test_local_providers_allow_missing_key(self):
+        for prov in ('ollama', 'lmstudio', 'vllm', 'localai', 'jan'):
+            fields, err = app_module._validate_test_request({
+                'provider': prov,
+                'model': 'local-model',
+                'prompt': 'Hello',
+                'api_key': ''
+            })
+            self.assertIsNone(err, f"Provider {prov} should allow missing API key")
+            self.assertEqual(fields['provider'], prov)
+
+    def test_test_chat_stream_openai(self):
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+            'data: {"choices":[{"delta":{"content":" world"}}]}\n\n',
+            'data: [DONE]\n\n'
+        ]
+        fake = FakeResponse(lines=sse_lines, status_code=200)
+        with mock.patch.object(app_module.requests, 'post', return_value=fake):
+            resp = self.client.post('/test-chat-stream', json={
+                'provider': 'openai',
+                'api_key': 'sk-test',
+                'model': 'gpt-4o',
+                'messages': [{'role': 'user', 'content': 'Hi'}]
+            })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('text/event-stream', resp.headers.get('Content-Type', ''))
+        data_text = resp.get_data(as_text=True)
+        self.assertIn('delta', data_text)
+        self.assertIn('Hello', data_text)
+        self.assertIn('[DONE]', data_text)
+
+    def test_test_suite_matrix(self):
+        fake = FakeResponse(json_data={'choices': [{'message': {'content': 'The quick brown fox jumps'}}]})
+        with mock.patch.object(app_module.requests, 'post', return_value=fake):
+            resp = self.client.post('/test-suite-matrix', json={
+                'provider': 'openai',
+                'api_key': 'sk-test',
+                'models': ['gpt-4o', 'gpt-4o-mini'],
+                'custom_prompts': [
+                    {'name': 'Fox Test', 'prompt': 'Say quick brown fox', 'expected_keywords': ['quick', 'fox']}
+                ]
+            })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('matrix', body)
+        self.assertEqual(len(body['matrix']), 1)
+        self.assertEqual(len(body['matrix'][0]['results']), 2)
+        self.assertEqual(body['matrix'][0]['results']['gpt-4o']['assertion_passed'], True)
+        self.assertEqual(body['matrix'][0]['results']['gpt-4o-mini']['assertion_passed'], True)
+
+    def test_api_pricing_sync(self):
+        fake = FakeResponse(json_data={
+            'data': [
+                {
+                    'id': 'openai/gpt-4o',
+                    'pricing': {'prompt': '0.000005', 'completion': '0.000015'}
+                },
+                {
+                    'id': 'anthropic/claude-3-5-sonnet',
+                    'pricing': {'prompt': '0.000003', 'completion': '0.000015'}
+                }
+            ]
+        }, status_code=200)
+        with mock.patch.object(app_module.requests, 'get', return_value=fake):
+            resp = self.client.get('/api/pricing/sync')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['success'])
+        self.assertIn('openai/gpt-4o', body['pricing'])
+        self.assertEqual(body['pricing']['openai/gpt-4o']['prompt'], 5.0)
+        self.assertEqual(body['pricing']['openai/gpt-4o']['completion'], 15.0)
+
+    def test_generate_code_snippets(self):
+        resp = self.client.post('/api/generate-code', json={
+            'provider': 'openai',
+            'model': 'gpt-4o',
+            'prompt': 'Write hello world in python',
+            'api_key': 'sk-test123'
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('curl', body)
+        self.assertIn('python_requests', body)
+        self.assertIn('python_sdk', body)
+        self.assertIn('javascript', body)
+        self.assertIn('curl -X POST', body['curl'])
+        self.assertIn('from openai import OpenAI', body['python_sdk'])
+        self.assertIn('fetch(', body['javascript'])
+
+    def test_evaluate_assertion(self):
+        # Keyword assertion
+        resp1 = self.client.post('/api/evaluate-assertion', json={
+            'response': 'The capital of France is Paris.',
+            'type': 'keyword',
+            'expected': ['Paris']
+        })
+        self.assertEqual(resp1.status_code, 200)
+        self.assertTrue(resp1.get_json()['passed'])
+
+        # Regex assertion
+        resp2 = self.client.post('/api/evaluate-assertion', json={
+            'response': 'Result status: SUCCESS [code: 200]',
+            'type': 'regex',
+            'expected': r'SUCCESS\s*\[code:\s*\d+\]'
+        })
+        self.assertEqual(resp2.status_code, 200)
+        self.assertTrue(resp2.get_json()['passed'])
+
+        # Forbidden not_contains assertion
+        resp3 = self.client.post('/api/evaluate-assertion', json={
+            'response': 'Safe and filtered output',
+            'type': 'not_contains',
+            'expected': ['forbidden_token', 'unsafe']
+        })
+        self.assertEqual(resp3.status_code, 200)
+        self.assertTrue(resp3.get_json()['passed'])
+
+        # Length assertion
+        resp4 = self.client.post('/api/evaluate-assertion', json={
+            'response': '12345',
+            'type': 'length',
+            'min': 3,
+            'max': 10
+        })
+        self.assertEqual(resp4.status_code, 200)
+        self.assertTrue(resp4.get_json()['passed'])
+
+    def test_prompt_templates(self):
+        resp = self.client.get('/api/prompt-templates')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('templates', body)
+        self.assertTrue(len(body['templates']) >= 5)
+        self.assertTrue(any(t['id'] == 'senior-architect' for t in body['templates']))
+
+    def test_test_suite_matrix_regex(self):
+        fake = FakeResponse(json_data={'choices': [{'message': {'content': 'The answer is 42 units.'}}]})
+        with mock.patch.object(app_module.requests, 'post', return_value=fake):
+            resp = self.client.post('/test-suite-matrix', json={
+                'provider': 'openai',
+                'api_key': 'sk-test',
+                'models': ['gpt-4o'],
+                'custom_prompts': [
+                    {'name': 'Regex Num Test', 'prompt': 'What is answer?', 'expected': ['regex:\\d+\\s+units']}
+                ]
+            })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['matrix'][0]['results']['gpt-4o']['assertion_passed'], True)
+
 
 if __name__ == '__main__':
     unittest.main()
+
 
 
