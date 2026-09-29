@@ -651,7 +651,7 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(app_module._parse_version_tuple('v3.5.8'), (3, 5, 8))
         self.assertEqual(app_module._parse_version_tuple(''), ())
         self.assertGreater(app_module._parse_version_tuple('3.5.10'), app_module._parse_version_tuple('3.5.9'))
-        self.assertGreater(app_module._parse_version_tuple('3.8.0'), app_module._parse_version_tuple('3.5.9'))
+        self.assertGreater(app_module._parse_version_tuple('3.9.0'), app_module._parse_version_tuple('3.5.9'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
@@ -977,6 +977,19 @@ class NewFeaturesTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.get_json()
         self.assertEqual(body['matrix'][0]['results']['gpt-4o']['assertion_passed'], True)
+
+    def test_ping_provider(self):
+        fake = FakeResponse(json_data={'data': []}, status_code=200)
+        with mock.patch.object(app_module.requests, 'get', return_value=fake):
+            resp = self.client.post('/api/ping-provider', json={
+                'provider': 'openai',
+                'api_key': 'sk-test'
+            })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertIn('latency_ms', body)
+        self.assertEqual(body['provider'], 'openai')
 
 
 if __name__ == '__main__':

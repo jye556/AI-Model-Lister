@@ -61,7 +61,7 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.8.0'
+    return '3.9.0'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
@@ -1063,15 +1063,23 @@ def manage_settings():
                         env_vars[k.strip()] = v.strip().strip("'\"")
             except Exception:
                 pass
+        recognized_keys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'XAI_API_KEY', 'PERPLEXITY_API_KEY', 'TOGETHER_API_KEY', 'COHERE_API_KEY', 'FIREWORKS_API_KEY', 'NVIDIA_API_KEY']
+        saved_keys = {}
+        for k in recognized_keys:
+            val = env_vars.get(k, os.environ.get(k, ''))
+            if val:
+                saved_keys[k] = val
         return jsonify({
             'default_base_url': env_vars.get('DEFAULT_BASE_URL', os.environ.get('DEFAULT_BASE_URL', '')),
             'default_provider': env_vars.get('DEFAULT_PROVIDER', os.environ.get('DEFAULT_PROVIDER', 'openai')),
+            'keys': saved_keys
         })
 
     # POST
     data = request.get_json(silent=True) or {}
     new_base_url = data.get('default_base_url', '').strip()
     new_provider = data.get('default_provider', 'openai').strip()
+    keys_to_save = data.get('keys', {})
 
     if new_provider not in PROVIDER_BASE_URLS:
         new_provider = 'openai'
@@ -1088,6 +1096,9 @@ def manage_settings():
             return jsonify({'error': f'Could not read .env: {e}'}), 500
 
     new_lines = []
+    saved_key_names = set(keys_to_save.keys()) if isinstance(keys_to_save, dict) else set()
+    found_keys = set()
+
     for line in lines:
         stripped = line.strip()
         if stripped.startswith('DEFAULT_BASE_URL='):
@@ -1096,6 +1107,16 @@ def manage_settings():
         elif stripped.startswith('DEFAULT_PROVIDER='):
             new_lines.append(f'DEFAULT_PROVIDER={new_provider}\n')
             found_provider = True
+        elif '=' in stripped:
+            k, _ = stripped.split('=', 1)
+            k = k.strip()
+            if k in saved_key_names:
+                v = keys_to_save[k].strip()
+                new_lines.append(f'{k}={v}\n')
+                found_keys.add(k)
+                os.environ[k] = v
+            else:
+                new_lines.append(line)
         else:
             new_lines.append(line)
 
@@ -1103,6 +1124,13 @@ def manage_settings():
         new_lines.append(f'DEFAULT_BASE_URL={new_base_url}\n')
     if not found_provider:
         new_lines.append(f'DEFAULT_PROVIDER={new_provider}\n')
+
+    if isinstance(keys_to_save, dict):
+        for k, v in keys_to_save.items():
+            if k not in found_keys and v:
+                v = str(v).strip()
+                new_lines.append(f'{k}={v}\n')
+                os.environ[k] = v
 
     try:
         with open(env_file, 'w', encoding='utf-8') as f:
@@ -1123,6 +1151,44 @@ def manage_settings():
         'default_base_url': new_base_url,
         'default_provider': new_provider,
     })
+
+
+@app.route('/api/ping-provider', methods=['POST'])
+def ping_provider():
+    """Test connectivity, authentication, and measure latency to a provider endpoint."""
+    data = request.get_json(silent=True) or {}
+    provider = data.get('provider', DEFAULT_PROVIDER)
+    api_key = data.get('api_key', '').strip()
+    custom_base = data.get('base_url', '').strip()
+
+    base_url = get_base_url(provider, custom_base)
+    headers = {**auth_headers(provider, api_key), 'Content-Type': 'application/json'}
+    extra = parse_extra_headers(data.get('headers'))
+    headers.update(extra)
+
+    start = time.monotonic()
+    try:
+        if provider == 'gemini':
+            url = f"{base_url}/models"
+            resp = requests.get(url, headers=headers, timeout=8)
+        elif provider == 'claude':
+            url = f"{base_url}/models"
+            resp = requests.get(url, headers=headers, timeout=8)
+        elif provider == 'ollama':
+            clean_host = base_url.replace('/v1', '')
+            url = f"{clean_host}/api/version"
+            resp = requests.get(url, headers=headers, timeout=5)
+        else:
+            url = f"{base_url}/models"
+            resp = requests.get(url, headers=headers, timeout=8)
+
+        latency_ms = round((time.monotonic() - start) * 1000, 1)
+        if resp.status_code < 400:
+            return jsonify({'ok': True, 'latency_ms': latency_ms, 'status_code': resp.status_code, 'provider': provider})
+        return jsonify({'ok': False, 'latency_ms': latency_ms, 'status_code': resp.status_code, 'error': f"HTTP {resp.status_code}: {resp.text[:120]}"}), 200
+    except Exception as e:
+        latency_ms = round((time.monotonic() - start) * 1000, 1)
+        return jsonify({'ok': False, 'latency_ms': latency_ms, 'error': str(e)}), 200
 
 
 @app.route('/list-models', methods=['POST'])
