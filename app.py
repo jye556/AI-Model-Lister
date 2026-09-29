@@ -777,8 +777,8 @@ def _do_restart():
     # Direct process restart (dev server / standalone python)
     target = os.path.abspath(__file__)
     if os.name == 'nt':
-        # Wait for this process to release the port, then relaunch.
-        cmd = f'timeout /t 2 /nobreak >nul & "{sys.executable}" "{target}"'
+        # Use ping for reliable non-blocking delay on Windows (timeout fails with detached stdin)
+        cmd = f'ping -n 3 127.0.0.1 >nul & "{sys.executable}" "{target}"'
         subprocess.Popen(cmd, shell=True,
                          creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
     else:
@@ -820,8 +820,8 @@ def _update_from_archive(target_dir):
                 if not member.name.startswith(top_prefix):
                     continue
                 rel_path = member.name[len(top_prefix):]
-                # Skip root, git metadata, local .env, and version.txt (managed separately)
-                if not rel_path or rel_path.startswith('.git') or rel_path in ('.env', 'version.txt'):
+                # Skip root, git metadata, and local .env (user credentials)
+                if not rel_path or rel_path.startswith('.git') or rel_path == '.env':
                     continue
 
                 dest_path = os.path.abspath(os.path.join(target_dir, rel_path))
@@ -938,14 +938,19 @@ def update_app():
                             'message': f'Update failed: {e}'}), 500
 
     new_ver = _read_version()
+    global VERSION
+    VERSION = new_ver
+
     # Success — relaunch / reload. Send the response first, then reload shortly after.
     if not UPDATE_NO_RESTART:
         threading.Thread(target=lambda: (time.sleep(1.0), _do_restart()), daemon=True).start()
         return jsonify({'updated': True,
+                        'version': new_ver,
                         'message': f'Updated to v{new_ver}. Reloading...'})
     else:
         # No restart mode - just update files, let user manually reload
         return jsonify({'updated': True, 'no_restart': True,
+                        'version': new_ver,
                         'message': f'Updated to v{new_ver}. Please reload the page.'})
 
 
