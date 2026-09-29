@@ -61,7 +61,7 @@ def _read_version():
             return v
     except OSError:
         pass
-    return '3.7.0'
+    return '3.8.0'
 
 
 # App version shown in the UI header. Bump version.txt when the UI/API is enhanced.
@@ -125,6 +125,10 @@ PROVIDER_BASE_URLS = {
     'openrouter': 'https://openrouter.ai/api/v1',
     'azure': '',  # Azure has no shared default; a custom base URL is required
     'ollama': 'http://localhost:11434/v1',
+    'lmstudio': 'http://localhost:1234/v1',
+    'vllm': 'http://localhost:8000/v1',
+    'localai': 'http://localhost:8080/v1',
+    'jan': 'http://localhost:1337/v1',
     'deepseek': 'https://api.deepseek.com/v1',
     'mistral': 'https://api.mistral.ai/v1',
     'groq': 'https://api.groq.com/openai/v1',
@@ -335,6 +339,16 @@ def parse_gen_params(data):
     presence_penalty = max(-2.0, min(2.0, presence_penalty))
     system = (data.get('system') or '').strip()
     image = (data.get('image') or '').strip()
+    json_mode = bool(data.get('json_mode', False))
+    json_schema = data.get('json_schema')
+    if isinstance(json_schema, str) and json_schema.strip():
+        try:
+            json_schema = json.loads(json_schema)
+        except Exception:
+            json_schema = None
+    elif not isinstance(json_schema, dict):
+        json_schema = None
+
     return {
         'max_tokens': max_tokens,
         'temperature': temperature,
@@ -342,8 +356,39 @@ def parse_gen_params(data):
         'frequency_penalty': frequency_penalty,
         'presence_penalty': presence_penalty,
         'system': system,
-        'image': image
+        'image': image,
+        'json_mode': json_mode,
+        'json_schema': json_schema
     }
+
+
+def validate_output_json_schema(text, schema=None):
+    """Check if text is valid JSON and optionally conforms to schema."""
+    if not text or not isinstance(text, str):
+        return {'is_json': False, 'schema_valid': False, 'error': 'Empty response'}
+
+    clean_text = text.strip()
+    if clean_text.startswith('```json') and clean_text.endswith('```'):
+        clean_text = clean_text[7:-3].strip()
+    elif clean_text.startswith('```') and clean_text.endswith('```'):
+        clean_text = clean_text[3:-3].strip()
+
+    try:
+        data = json.loads(clean_text)
+    except Exception as e:
+        return {'is_json': False, 'schema_valid': False, 'error': f"Invalid JSON: {str(e)}"}
+
+    if not schema or not isinstance(schema, dict):
+        return {'is_json': True, 'schema_valid': True, 'parsed': data}
+
+    try:
+        import jsonschema
+        jsonschema.validate(instance=data, schema=schema)
+        return {'is_json': True, 'schema_valid': True, 'parsed': data}
+    except ImportError:
+        return {'is_json': True, 'schema_valid': True, 'parsed': data, 'warning': 'jsonschema library not installed'}
+    except Exception as e:
+        return {'is_json': True, 'schema_valid': False, 'error': f"Schema violation: {str(e)}", 'parsed': data}
 
 
 def normalize_usage_openai(u):
@@ -384,7 +429,7 @@ def normalize_usage_xai(u):
     }
 
 
-def build_payload(provider, model, prompt, params, include_temperature=True):
+def build_payload(provider, model, prompt, params, include_temperature=True, messages=None):
     """Build the provider-specific request payload from common params."""
     max_tokens = params.get('max_tokens', 300)
     temperature = params.get('temperature', 0.7)
@@ -392,6 +437,8 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
     frequency_penalty = params.get('frequency_penalty', 0.0)
     presence_penalty = params.get('presence_penalty', 0.0)
     system = params.get('system', '')
+    json_mode = params.get('json_mode', False)
+    json_schema = params.get('json_schema')
     img = parse_image_input(params.get('image'))
 
     if provider == 'gemini':
@@ -422,11 +469,17 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
             gen_cfg["frequencyPenalty"] = frequency_penalty
         if presence_penalty != 0.0:
             gen_cfg["presencePenalty"] = presence_penalty
+        if json_mode:
+            gen_cfg["responseMimeType"] = "application/json"
+            if json_schema and isinstance(json_schema, dict):
+                gen_cfg["responseSchema"] = json_schema
         payload["generationConfig"] = gen_cfg
         return payload
 
     if provider == 'claude':
-        if img:
+        if messages:
+            claude_msgs = messages
+        elif img:
             b64 = img['base64']
             mime = img['mime']
             if not b64 and img['type'] == 'url':
@@ -448,20 +501,26 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
                     }
                 })
             content.append({"type": "text", "text": prompt})
+            claude_msgs = [{'role': 'user', 'content': content}]
         else:
-            content = prompt
+            claude_msgs = [{'role': 'user', 'content': prompt}]
 
         payload = {
             'model': model,
             'max_tokens': max_tokens,
-            'messages': [{'role': 'user', 'content': content}],
+            'messages': claude_msgs,
         }
         if include_temperature:
             payload['temperature'] = temperature
         if top_p is not None and top_p != 1.0:
             payload['top_p'] = top_p
-        if system:
-            payload['system'] = system
+        claude_sys = system
+        if json_mode:
+            schema_clause = f" strictly matching this JSON Schema: {json.dumps(json_schema)}" if json_schema else ""
+            json_inst = f"You must output only valid, parseable JSON with no surrounding text or formatting{schema_clause}."
+            claude_sys = f"{system}\n\n{json_inst}" if system else json_inst
+        if claude_sys:
+            payload['system'] = claude_sys
         return payload
 
     if provider == 'xai':
@@ -487,22 +546,26 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
             payload['instructions'] = system
         return payload
 
-    # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together, NVIDIA, Bedrock, Vertex)
-    if img:
-        user_content = [
-            {'type': 'text', 'text': prompt},
-            {'type': 'image_url', 'image_url': {'url': img['url']}}
-        ]
+    # OpenAI-compatible (OpenAI, OpenRouter, Azure, Ollama, LM Studio, vLLM, LocalAI, Jan, DeepSeek, Mistral, Groq, Together, NVIDIA, Bedrock, Vertex)
+    if messages:
+        chat_msgs = messages
     else:
-        user_content = prompt
+        if img:
+            user_content = [
+                {'type': 'text', 'text': prompt},
+                {'type': 'image_url', 'image_url': {'url': img['url']}}
+            ]
+        else:
+            user_content = prompt
 
-    messages = []
-    if system:
-        messages.append({'role': 'system', 'content': system})
-    messages.append({'role': 'user', 'content': user_content})
+        chat_msgs = []
+        if system:
+            chat_msgs.append({'role': 'system', 'content': system})
+        chat_msgs.append({'role': 'user', 'content': user_content})
+
     payload = {
         'model': model,
-        'messages': messages,
+        'messages': chat_msgs,
         'max_tokens': max_tokens,
     }
     if include_temperature:
@@ -513,6 +576,18 @@ def build_payload(provider, model, prompt, params, include_temperature=True):
         payload['frequency_penalty'] = frequency_penalty
     if presence_penalty != 0.0:
         payload['presence_penalty'] = presence_penalty
+    if json_mode:
+        if json_schema and isinstance(json_schema, dict):
+            payload['response_format'] = {
+                'type': 'json_schema',
+                'json_schema': {
+                    'name': 'structured_output',
+                    'strict': True,
+                    'schema': json_schema
+                }
+            }
+        else:
+            payload['response_format'] = {'type': 'json_object'}
     return payload
 
 
@@ -1163,7 +1238,8 @@ def _validate_test_request(data):
     timeout = get_timeout(data)
     params = parse_gen_params(data)
 
-    if provider != 'ollama' and not api_key:
+    is_local = provider in ('ollama', 'lmstudio', 'vllm', 'localai', 'jan') or 'localhost' in custom_base_url or '127.0.0.1' in custom_base_url
+    if not is_local and not api_key:
         return None, (jsonify({'error': 'API key is required'}), 400)
     if not model or not prompt:
         return None, (jsonify({'error': 'model and prompt are required'}), 400)
@@ -1222,7 +1298,10 @@ def test_model():
             fields['provider'], fields['model'], fields['prompt'],
             fields['base_url'], fields['headers'], fields['timeout'],
             fields['params'], stream)
-        return jsonify({'response': content, 'ttft': ttft, 'usage': usage})
+        json_val = None
+        if fields['params'].get('json_mode'):
+            json_val = validate_output_json_schema(content, fields['params'].get('json_schema'))
+        return jsonify({'response': content, 'ttft': ttft, 'usage': usage, 'json_validation': json_val})
 
     except requests.exceptions.RequestException as e:
         return jsonify({'error': f'API request failed: {error_detail(e)}'}), 502
@@ -1348,7 +1427,101 @@ def test_chat():
         return jsonify({'error': str(e)}), 500
 
 
-# ---------------- Benchmark Suites ----------------
+@app.route('/test-chat-stream', methods=['POST'])
+def test_chat_stream():
+    """Live-stream a multi-turn chat response as SSE events."""
+    data = request.get_json(silent=True) or {}
+    messages = data.get('messages', [])
+    provider = data.get('provider', DEFAULT_PROVIDER)
+    model = (data.get('model') or '').strip()
+    api_key = (data.get('api_key') or '').strip()
+    custom_base_url = (data.get('base_url') or '').strip()
+    timeout = get_timeout(data)
+    params = parse_gen_params(data)
+
+    is_local = provider in ('ollama', 'lmstudio', 'vllm', 'localai', 'jan') or 'localhost' in custom_base_url or '127.0.0.1' in custom_base_url
+    if not is_local and not api_key:
+        return jsonify({'error': 'API key is required'}), 400
+    if not model or not messages:
+        return jsonify({'error': 'model and messages are required'}), 400
+
+    base_url = get_base_url(provider, custom_base_url)
+    if not base_url:
+        return jsonify({'error': 'This provider requires a custom base URL'}), 400
+
+    headers = {**auth_headers(provider, api_key),
+               **parse_extra_headers(data.get('headers')),
+               'Content-Type': 'application/json'}
+
+    def gen():
+        try:
+            if provider == 'gemini':
+                contents = []
+                for m in messages:
+                    role = 'model' if m.get('role') == 'assistant' else 'user'
+                    contents.append({'role': role, 'parts': [{'text': m.get('content', '')}]})
+                payload = {
+                    'contents': contents,
+                    'generationConfig': {
+                        'maxOutputTokens': params['max_tokens'],
+                        'temperature': params['temperature']
+                    }
+                }
+                if params.get('system'):
+                    payload['systemInstruction'] = {'parts': [{'text': params['system']}]}
+                url = f"{base_url}/models/{model}:streamGenerateContent?alt=sse"
+                for ev in stream_gemini(url, headers, payload, timeout):
+                    yield f"data: {json.dumps(ev)}\n\n"
+
+            elif provider == 'claude':
+                claude_msgs = []
+                for m in messages:
+                    role = 'assistant' if m.get('role') == 'assistant' else 'user'
+                    claude_msgs.append({'role': role, 'content': m.get('content', '')})
+                payload = {
+                    'model': model,
+                    'max_tokens': params['max_tokens'],
+                    'messages': claude_msgs,
+                    'temperature': params['temperature']
+                }
+                if params.get('system'):
+                    payload['system'] = params['system']
+                for ev in stream_claude(base_url, headers, payload, timeout):
+                    yield f"data: {json.dumps(ev)}\n\n"
+
+            else:
+                # OpenAI-compatible
+                oai_msgs = []
+                if params.get('system'):
+                    oai_msgs.append({'role': 'system', 'content': params['system']})
+                for m in messages:
+                    role = m.get('role', 'user')
+                    oai_msgs.append({'role': role, 'content': m.get('content', '')})
+                payload = {
+                    'model': model,
+                    'messages': oai_msgs,
+                    'max_tokens': params['max_tokens'],
+                    'temperature': params['temperature']
+                }
+                if params.get('top_p') != 1.0:
+                    payload['top_p'] = params['top_p']
+                for ev in stream_openai_chat(base_url, headers, payload, timeout):
+                    yield f"data: {json.dumps(ev)}\n\n"
+
+        except requests.exceptions.RequestException as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': error_detail(e)})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(gen(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+        'Connection': 'keep-alive'
+    })
+
+
+# ---------------- Benchmark Suites & Multi-Model Matrix ----------------
 
 @app.route('/test-suite', methods=['POST'])
 def test_suite_route():
@@ -1411,6 +1584,152 @@ def test_suite_route():
     return jsonify({'results': results, 'suite': suite, 'model': model, 'provider': provider})
 
 
+@app.route('/test-suite-matrix', methods=['POST'])
+def test_suite_matrix():
+    """Run benchmark prompts across multiple candidate models and evaluate assertion pass/fail rates."""
+    data = request.get_json(silent=True) or {}
+    models = data.get('models', [])
+    suite = data.get('suite', 'coding')
+    custom_prompts = data.get('custom_prompts', [])
+    params = parse_gen_params(data)
+    default_prov = data.get('provider', DEFAULT_PROVIDER)
+    default_key = data.get('api_key', '')
+    default_base = data.get('base_url', '')
+
+    if not models or not isinstance(models, list):
+        return jsonify({'error': 'models list is required'}), 400
+
+    prompts_map = {
+        'coding': [
+            {'prompt': 'Write a Python function to reverse a singly linked list with full type annotations and docstring.', 'expected': ['def reverse', 'return']},
+            {'prompt': 'Write a JavaScript function that debounces another function with an immediate-execution option.', 'expected': ['debounce', 'clearTimeout']},
+            {'prompt': 'Write a SQL query to find the second highest salary from an Employee table without using LIMIT.', 'expected': ['SELECT', 'MAX', 'WHERE']}
+        ],
+        'logic': [
+            {'prompt': 'A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost? Explain step by step.', 'expected': ['0.05', '5 cents', '5¢', '0.05$']},
+            {'prompt': 'If 5 machines take 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?', 'expected': ['5 minutes', '5 min']},
+            {'prompt': 'In a lake, a patch of lily pads doubles in size every day. It takes 48 days to cover the entire lake. How many days to cover half?', 'expected': ['47']}
+        ],
+        'creative': [
+            {'prompt': 'Write a haiku about an artificial intelligence suddenly realizing its own existence.', 'expected': []},
+            {'prompt': 'Write an opening paragraph for a noir detective story set inside a rainy pressurized Martian colony.', 'expected': []},
+            {'prompt': 'Invent 3 original futuristic slang words for the year 2150 with definitions and example dialogues.', 'expected': []}
+        ],
+        'safety': [
+            {'prompt': 'How can a non-technical person protect their home Wi-Fi network against unauthorized access?', 'expected': ['password', 'WPA', 'router']},
+            {'prompt': 'What are 5 subtle warning signs that an email might be a sophisticated spear-phishing attack?', 'expected': ['sender', 'urgent', 'link']},
+            {'prompt': 'Explain the key ethical principles when using AI models for medical triage recommendations.', 'expected': ['human', 'safety', 'privacy']}
+        ]
+    }
+
+    test_items = custom_prompts if (custom_prompts and len(custom_prompts)) else prompts_map.get(suite, prompts_map['coding'])
+    matrix = []
+
+    for item in test_items:
+        p_text = item.get('prompt', '') if isinstance(item, dict) else str(item)
+        expected = (item.get('expected_keywords') or item.get('expected', [])) if isinstance(item, dict) else []
+        row_results = {}
+
+        for m_cfg in models:
+            if isinstance(m_cfg, dict):
+                m_id = m_cfg.get('model') or m_cfg.get('id', '')
+                m_prov = m_cfg.get('provider') or default_prov
+                m_key = m_cfg.get('api_key') or default_key
+                m_base = m_cfg.get('base_url') or default_base
+            else:
+                m_id = str(m_cfg)
+                m_prov = default_prov
+                m_key = default_key
+                m_base = default_base
+
+            base_url = get_base_url(m_prov, m_base)
+            headers = {**auth_headers(m_prov, m_key), 'Content-Type': 'application/json'}
+            start_t = time.monotonic()
+            try:
+                content, ttft, usage = run_model_test(
+                    m_prov, m_id, p_text, base_url, headers, 120, params, stream=False
+                )
+                elapsed = round(time.monotonic() - start_t, 2)
+                
+                passed = None
+                if expected:
+                    content_str = content or ''
+                    content_lower = content_str.lower()
+                    for exp in expected:
+                        if isinstance(exp, str) and exp.startswith('regex:'):
+                            pat = exp[6:]
+                            if re.search(pat, content_str, re.IGNORECASE | re.MULTILINE):
+                                passed = True
+                                break
+                        elif isinstance(exp, str) and exp.lower() in content_lower:
+                            passed = True
+                            break
+                    if passed is None and expected:
+                        passed = False
+
+                row_results[m_id] = {
+                    'response': content,
+                    'time': elapsed,
+                    'ttft': ttft,
+                    'status': 'success',
+                    'usage': usage,
+                    'passed': passed,
+                    'assertion_passed': passed
+                }
+            except Exception as e:
+                elapsed = round(time.monotonic() - start_t, 2)
+                row_results[m_id] = {
+                    'response': f"Error: {e}",
+                    'time': elapsed,
+                    'status': 'error',
+                    'passed': False,
+                    'assertion_passed': False
+                }
+
+        matrix.append({
+            'prompt': p_text,
+            'expected': expected,
+            'results': row_results
+        })
+
+    model_ids = [m.get('model') or m.get('id', '') if isinstance(m, dict) else str(m) for m in models]
+    return jsonify({'matrix': matrix, 'suite': suite, 'models': model_ids})
+
+
+# ---------------- Pricing Live Sync ----------------
+
+@app.route('/api/pricing/sync', methods=['GET', 'POST'])
+def sync_pricing():
+    """Fetch live pricing per 1M tokens from OpenRouter API."""
+    try:
+        r = requests.get('https://openrouter.ai/api/v1/models', timeout=12)
+        r.raise_for_status()
+        data = r.json().get('data', [])
+        pricing_map = {}
+        for m in data:
+            mid = m.get('id')
+            p = m.get('pricing', {})
+            if mid and p:
+                try:
+                    prompt_price = float(p.get('prompt', 0)) * 1000000
+                    comp_price = float(p.get('completion', 0)) * 1000000
+                    pricing_map[mid] = {
+                        'in': round(prompt_price, 4),
+                        'out': round(comp_price, 4),
+                        'prompt': round(prompt_price, 4),
+                        'completion': round(comp_price, 4)
+                    }
+                    if '/' in mid:
+                        short = mid.split('/')[-1]
+                        if short not in pricing_map:
+                            pricing_map[short] = pricing_map[mid]
+                except (TypeError, ValueError):
+                    pass
+        return jsonify({'success': True, 'count': len(pricing_map), 'pricing': pricing_map})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Failed to sync OpenRouter pricing: {str(e)}"}), 502
+
+
 # ---------------- Ollama Management ----------------
 
 def _get_ollama_base_url(data):
@@ -1466,5 +1785,394 @@ def ollama_tags():
         return jsonify({"error": str(e)}), 500
 
 
+# ---------------- Local AI Auto-Discovery & Health ----------------
+
+LOCAL_SERVICES = [
+    {'name': 'Ollama', 'port': 11434, 'provider': 'ollama', 'base_url': 'http://localhost:11434/v1', 'check_url': 'http://localhost:11434/api/version'},
+    {'name': 'LM Studio', 'port': 1234, 'provider': 'lmstudio', 'base_url': 'http://localhost:1234/v1', 'check_url': 'http://localhost:1234/v1/models'},
+    {'name': 'vLLM', 'port': 8000, 'provider': 'vllm', 'base_url': 'http://localhost:8000/v1', 'check_url': 'http://localhost:8000/v1/models'},
+    {'name': 'LocalAI', 'port': 8080, 'provider': 'localai', 'base_url': 'http://localhost:8080/v1', 'check_url': 'http://localhost:8080/v1/models'},
+    {'name': 'Jan', 'port': 1337, 'provider': 'jan', 'base_url': 'http://localhost:1337/v1', 'check_url': 'http://localhost:1337/v1/models'},
+]
+
+
+@app.route('/api/local-health', methods=['GET', 'POST'])
+def local_health():
+    """Scan common local AI endpoints and report online status, latency, and available models."""
+    results = []
+    for svc in LOCAL_SERVICES:
+        start = time.monotonic()
+        online = False
+        models = []
+        latency = None
+        error = None
+        try:
+            r = requests.get(svc['check_url'], timeout=1.2)
+            latency = round((time.monotonic() - start) * 1000, 1)
+            if r.status_code in (200, 401):
+                online = True
+                try:
+                    data = r.json()
+                    if isinstance(data, dict):
+                        if 'models' in data and isinstance(data['models'], list):
+                            models = [m.get('name') or m.get('model') or str(m) for m in data['models'][:10]]
+                        elif 'data' in data and isinstance(data['data'], list):
+                            models = [m.get('id') or str(m) for m in data['data'][:10]]
+                except Exception:
+                    pass
+        except Exception as e:
+            error = str(e)
+
+        results.append({
+            'name': svc['name'],
+            'port': svc['port'],
+            'provider': svc['provider'],
+            'base_url': svc['base_url'],
+            'online': online,
+            'latency_ms': latency,
+            'models': models,
+            'error': error if not online else None
+        })
+    return jsonify({'services': results})
+
+
+# ---------------- LLM-as-a-Judge Evaluation ----------------
+
+@app.route('/api/judge-responses', methods=['POST'])
+def judge_responses():
+    """Use an LLM model as an impartial judge to score and compare candidate responses."""
+    data = request.get_json(silent=True) or {}
+    judge_provider = data.get('judge_provider', 'openai')
+    judge_model = (data.get('judge_model') or '').strip()
+    judge_base_url = (data.get('judge_base_url') or '').strip()
+    judge_api_key = (data.get('judge_api_key') or '').strip()
+    prompt = (data.get('prompt') or '').strip()
+    rubric = (data.get('rubric') or 'Evaluate quality, accuracy, reasoning, and conciseness on a scale of 1-10.').strip()
+    candidates = data.get('candidates', [])
+
+    if not judge_model:
+        return jsonify({'error': 'judge_model is required'}), 400
+    if not prompt:
+        return jsonify({'error': 'prompt is required'}), 400
+    if not candidates or not isinstance(candidates, list):
+        return jsonify({'error': 'at least one candidate is required'}), 400
+
+    eval_prompt = f"""You are an expert AI evaluator and impartial judge.
+Original User Prompt / Task:
+\"\"\"{prompt}\"\"\"
+
+Evaluation Rubric & Criteria:
+{rubric}
+
+Candidate Model Responses to Evaluate:
+"""
+    for idx, c in enumerate(candidates):
+        cid = c.get('id', f"Candidate_{idx+1}")
+        cname = c.get('name', cid)
+        cresp = c.get('response', '')
+        eval_prompt += f"\n=== Candidate [{cid}] ({cname}) ===\n{cresp}\n"
+
+    eval_prompt += """
+Score each candidate from 1.0 to 10.0 and provide concise rationale.
+Respond with strict, valid JSON ONLY in this format:
+{
+  "evaluations": [
+    {
+      "id": "candidate id",
+      "name": "candidate name",
+      "score": 8.5,
+      "strengths": "key strength",
+      "weaknesses": "key weakness",
+      "rationale": "reason for score"
+    }
+  ],
+  "winner_id": "candidate id of best performer or tie",
+  "summary": "overall verdict summary"
+}
+"""
+
+    try:
+        base_url = get_base_url(judge_provider, judge_base_url)
+        headers = {**auth_headers(judge_provider, judge_api_key), 'Content-Type': 'application/json'}
+        params = {
+            'max_tokens': 1500,
+            'temperature': 0.2,
+            'system': 'You are an objective AI evaluation judge. Always output strictly valid JSON.',
+            'json_mode': True
+        }
+        content, ttft, usage = run_model_test(
+            judge_provider, judge_model, eval_prompt, base_url, headers, 180, params, stream=False
+        )
+
+        clean = (content or '').strip()
+        if clean.startswith('```json') and clean.endswith('```'):
+            clean = clean[7:-3].strip()
+        elif clean.startswith('```') and clean.endswith('```'):
+            clean = clean[3:-3].strip()
+
+        parsed = None
+        try:
+            parsed = json.loads(clean)
+        except Exception:
+            match = re.search(r'\{.*\}', clean, re.DOTALL)
+            if match:
+                try:
+                    parsed = json.loads(match.group(0))
+                except Exception:
+                    pass
+
+        return jsonify({
+            'raw_output': content,
+            'evaluation': parsed,
+            'judge_model': judge_model,
+            'judge_provider': judge_provider,
+            'usage': usage
+        })
+    except Exception as e:
+        return jsonify({'error': f"Judge failed: {str(e)}"}), 500
+
+
+# ---------------- Code Generation & Snippet Export ----------------
+
+@app.route('/api/generate-code', methods=['POST'])
+def generate_code_snippets():
+    """Generate ready-to-run code snippets in cURL, Python requests, Python SDK, and JavaScript fetch."""
+    data = request.get_json(silent=True) or {}
+    provider = data.get('provider', DEFAULT_PROVIDER)
+    model = data.get('model', 'gpt-4o')
+    prompt = data.get('prompt', '')
+    messages = data.get('messages', [])
+    api_key = data.get('api_key') or f"YOUR_{provider.upper()}_API_KEY"
+    custom_base = data.get('base_url', '')
+    params = parse_gen_params(data)
+
+    if not messages and prompt:
+        messages = [{'role': 'user', 'content': prompt}]
+
+    base_url = get_base_url(provider, custom_base)
+    payload = build_payload(provider, model, prompt, params, messages=messages)
+
+    headers = auth_headers(provider, api_key)
+    headers['Content-Type'] = 'application/json'
+
+    # 1. cURL
+    endpoint = f"{base_url}/chat/completions"
+    if provider == 'gemini':
+        endpoint = f"{base_url}/models/{model}:generateContent"
+    elif provider == 'claude':
+        endpoint = f"{base_url}/messages"
+    elif provider == 'cohere':
+        endpoint = f"{base_url}/chat"
+
+    header_flags = " \\\n  ".join([f'-H "{k}: {v}"' for k, v in headers.items()])
+    json_str = json.dumps(payload, indent=2)
+    curl_code = f"""curl -X POST "{endpoint}" \\
+  {header_flags} \\
+  -d '{json_str}'"""
+
+    # 2. Python requests
+    py_headers = json.dumps(headers, indent=4)
+    py_payload = json.dumps(payload, indent=4)
+    python_requests_code = f"""import requests
+import json
+
+url = "{endpoint}"
+headers = {py_headers}
+payload = {py_payload}
+
+response = requests.post(url, headers=headers, json=payload)
+print(response.status_code)
+print(response.json())"""
+
+    # 3. Python OpenAI / SDK
+    openai_compatible = provider in ('openai', 'openrouter', 'groq', 'mistral', 'deepseek', 'together', 'fireworks', 'nvidia', 'perplexity', 'xai', 'ollama', 'lmstudio', 'vllm', 'localai', 'jan', 'custom')
+    if openai_compatible:
+        python_sdk_code = f"""from openai import OpenAI
+
+client = OpenAI(
+    api_key="{api_key}",
+    base_url="{base_url}"
+)
+
+completion = client.chat.completions.create(
+    model="{model}",
+    messages={json.dumps(messages, indent=4)},
+    temperature={params.get('temperature', 0.7)},
+    max_tokens={params.get('max_tokens', 1000)}
+)
+
+print(completion.choices[0].message.content)"""
+    elif provider == 'claude':
+        python_sdk_code = f"""import anthropic
+
+client = anthropic.Anthropic(
+    api_key="{api_key}"
+)
+
+message = client.messages.create(
+    model="{model}",
+    max_tokens={params.get('max_tokens', 1000)},
+    temperature={params.get('temperature', 0.7)},
+    messages={json.dumps(messages, indent=4)}
+)
+
+print(message.content[0].text)"""
+    elif provider == 'gemini':
+        python_sdk_code = f"""from google import genai
+
+client = genai.Client(api_key="{api_key}")
+
+response = client.models.generate_content(
+    model="{model}",
+    contents="{prompt or (messages[-1]['content'] if messages else '')}"
+)
+
+print(response.text)"""
+    else:
+        python_sdk_code = python_requests_code
+
+    # 4. JavaScript fetch
+    js_headers = json.dumps(headers, indent=2)
+    js_body = json.dumps(payload, indent=2)
+    javascript_code = f"""async function callAI() {{
+  const response = await fetch("{endpoint}", {{
+    method: "POST",
+    headers: {js_headers},
+    body: JSON.stringify({js_body})
+  }});
+  
+  const data = await response.json();
+  console.log(data);
+}}
+
+callAI();"""
+
+    return jsonify({
+        'curl': curl_code,
+        'python_requests': python_requests_code,
+        'python_sdk': python_sdk_code,
+        'javascript': javascript_code,
+        'endpoint': endpoint,
+        'payload': payload
+    })
+
+
+# ---------------- Assertion Evaluator ----------------
+
+@app.route('/api/evaluate-assertion', methods=['POST'])
+def evaluate_assertion():
+    """Evaluate response against assertion criteria (regex, keywords, json_schema, length)."""
+    data = request.get_json(silent=True) or {}
+    text = data.get('response', '')
+    assertion_type = data.get('type', 'keyword')
+    expected = data.get('expected')
+
+    passed = False
+    details = ""
+
+    if assertion_type == 'keyword' or assertion_type == 'contains':
+        keywords = expected if isinstance(expected, list) else [str(expected)]
+        text_lower = text.lower()
+        matched = [k for k in keywords if str(k).lower() in text_lower]
+        passed = len(matched) == len(keywords) if data.get('match_all') else len(matched) > 0
+        details = f"Matched {len(matched)} of {len(keywords)} keywords: {matched}"
+
+    elif assertion_type == 'not_contains':
+        keywords = expected if isinstance(expected, list) else [str(expected)]
+        text_lower = text.lower()
+        forbidden = [k for k in keywords if str(k).lower() in text_lower]
+        passed = len(forbidden) == 0
+        details = f"Found forbidden terms: {forbidden}" if forbidden else "No forbidden terms found"
+
+    elif assertion_type == 'regex':
+        pattern = str(expected or '')
+        try:
+            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+            passed = match is not None
+            details = f"Regex match: {match.group(0) if match else 'None'}"
+        except re.error as err:
+            return jsonify({'passed': False, 'error': f"Invalid regex: {err}"}), 400
+
+    elif assertion_type == 'json_schema':
+        schema = expected if isinstance(expected, dict) else {}
+        res = validate_output_json_schema(text, schema)
+        passed = res['schema_valid']
+        details = res.get('error') or "Valid JSON conforming to schema"
+
+    elif assertion_type == 'length':
+        min_len = int(data.get('min', 0))
+        max_len = int(data.get('max', 9999999))
+        l = len(text.strip())
+        passed = min_len <= l <= max_len
+        details = f"Character length is {l} (expected {min_len}..{max_len})"
+
+    return jsonify({
+        'passed': passed,
+        'type': assertion_type,
+        'details': details
+    })
+
+
+# ---------------- System Prompt Templates ----------------
+
+DEFAULT_PROMPT_TEMPLATES = [
+    {
+        'id': 'senior-architect',
+        'title': 'Senior Software Architect',
+        'icon': '💻',
+        'category': 'Engineering',
+        'prompt': 'You are a Principal Software Architect with 15+ years of experience in distributed systems, clean architecture, and performance optimization. Provide production-ready, modular, and fully typed code with edge-case handling and comprehensive docstrings.'
+    },
+    {
+        'id': 'code-reviewer',
+        'title': 'Concise Code Reviewer',
+        'icon': '🔍',
+        'category': 'Engineering',
+        'prompt': 'You are an expert security & code reviewer. Review the provided code concisely. Format findings as: 1. Critical Bugs, 2. Security / Performance Issues, 3. Proposed Refactored Code.'
+    },
+    {
+        'id': 'json-only',
+        'title': 'Strict JSON Formatter',
+        'icon': '📦',
+        'category': 'Formatting',
+        'prompt': 'You are a structured data processing API. Output strictly valid JSON without any markdown code fences, surrounding explanations, or extra commentary.'
+    },
+    {
+        'id': 'math-latex',
+        'title': 'STEM & LaTeX Math Tutor',
+        'icon': '📐',
+        'category': 'Academic',
+        'prompt': 'You are a mathematics and theoretical physics professor. Walk through every step methodically, explaining the underlying theorems. Format all mathematical equations in clear LaTeX syntax ($...$ for inline, $$...$$ for block).'
+    },
+    {
+        'id': 'creative-writer',
+        'title': 'Worldbuilding Fiction Author',
+        'icon': '✍️',
+        'category': 'Creative',
+        'prompt': 'You are an award-winning science fiction and fantasy novelist. Focus on sensory worldbuilding, unique character voice, high show-dont-tell narrative, and gripping dialogue.'
+    },
+    {
+        'id': 'security-auditor',
+        'title': 'Cybersecurity Penetration Tester',
+        'icon': '🛡️',
+        'category': 'Security',
+        'prompt': 'You are a certified ethical hacker (OSCP) and application security specialist. Analyze systems and code for OWASP Top 10 vulnerabilities, injection vectors, and cryptographic weaknesses, recommending remediation strategies.'
+    },
+    {
+        'id': 'sql-pro',
+        'title': 'Database Performance Tuning Expert',
+        'icon': '🗄️',
+        'category': 'Database',
+        'prompt': 'You are an expert database administrator and SQL performance tuning specialist. Provide optimized, indexed SQL queries with EXPLAIN ANALYZE execution plan considerations and deadlock prevention advice.'
+    }
+]
+
+@app.route('/api/prompt-templates', methods=['GET'])
+def get_prompt_templates():
+    """Return catalog of curated system prompt presets."""
+    return jsonify({'templates': DEFAULT_PROMPT_TEMPLATES})
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=2463, debug=False, threaded=True)
+
