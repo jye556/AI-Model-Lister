@@ -29,13 +29,14 @@ from app import (
 class FakeResponse:
     """Stand-in for requests.Response, optionally carrying an SSE line stream."""
 
-    def __init__(self, json_data=None, status_code=200, reason='', lines=None, text=None, content=None):
+    def __init__(self, json_data=None, status_code=200, reason='', lines=None, text=None, content=None, headers=None):
         self._json = json_data
         self.status_code = status_code
         self.reason = reason
         self._lines = lines or []
         self.text = text
         self.content = content if content is not None else (text.encode('utf-8') if text is not None else b'')
+        self.headers = headers or {}
 
     def json(self):
         if self._json is None:
@@ -592,6 +593,8 @@ class SettingsApiTests(unittest.TestCase):
         fake_env = os.path.join(temp_dir, '.env')
         orig_base = app_module.DEFAULT_BASE_URL
         orig_prov = app_module.DEFAULT_PROVIDER
+        orig_env_base = os.environ.get('DEFAULT_BASE_URL')
+        orig_env_prov = os.environ.get('DEFAULT_PROVIDER')
         try:
             with open(fake_env, 'w', encoding='utf-8') as f:
                 f.write("DEFAULT_BASE_URL=old\nDEFAULT_PROVIDER=openai\n")
@@ -611,6 +614,14 @@ class SettingsApiTests(unittest.TestCase):
             self.assertIn('DEFAULT_BASE_URL=https://custom.api/v1', content)
             self.assertIn('DEFAULT_PROVIDER=claude', content)
         finally:
+            if orig_env_base is None:
+                os.environ.pop('DEFAULT_BASE_URL', None)
+            else:
+                os.environ['DEFAULT_BASE_URL'] = orig_env_base
+            if orig_env_prov is None:
+                os.environ.pop('DEFAULT_PROVIDER', None)
+            else:
+                os.environ['DEFAULT_PROVIDER'] = orig_env_prov
             app_module.DEFAULT_BASE_URL = orig_base
             app_module.DEFAULT_PROVIDER = orig_prov
             app_module.PROVIDER_BASE_URLS['openai'] = orig_base
@@ -640,7 +651,7 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(app_module._parse_version_tuple('v3.5.8'), (3, 5, 8))
         self.assertEqual(app_module._parse_version_tuple(''), ())
         self.assertGreater(app_module._parse_version_tuple('3.5.10'), app_module._parse_version_tuple('3.5.9'))
-        self.assertGreater(app_module._parse_version_tuple('3.6.0'), app_module._parse_version_tuple('3.5.9'))
+        self.assertGreater(app_module._parse_version_tuple('3.7.0'), app_module._parse_version_tuple('3.5.9'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
@@ -677,6 +688,81 @@ class VersionTests(unittest.TestCase):
                 self.assertEqual(body['remote'], '3.5.6')
 
 
+class NewFeaturesTests(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_gen_params_with_penalties(self):
+        params = parse_gen_params({
+            'top_p': 0.85,
+            'frequency_penalty': 0.5,
+            'presence_penalty': -0.2
+        })
+        self.assertEqual(params['top_p'], 0.85)
+        self.assertEqual(params['frequency_penalty'], 0.5)
+        self.assertEqual(params['presence_penalty'], -0.2)
+
+    def test_build_payload_openai_penalties(self):
+        params = parse_gen_params({
+            'top_p': 0.9,
+            'frequency_penalty': 1.2,
+            'presence_penalty': 0.4
+        })
+        payload = build_payload('openai', 'gpt-4o', 'test', params)
+        self.assertEqual(payload['top_p'], 0.9)
+        self.assertEqual(payload['frequency_penalty'], 1.2)
+        self.assertEqual(payload['presence_penalty'], 0.4)
+
+    def test_test_chat_openai(self):
+        fake = FakeResponse(json_data={'choices': [{'message': {'content': 'I am fine, thanks!'}}]})
+        with mock.patch.object(app_module.requests, 'post', return_value=fake) as mp:
+            resp = self.client.post('/test-chat', json={
+                'provider': 'openai',
+                'api_key': 'sk-test',
+                'model': 'gpt-4o',
+                'messages': [
+                    {'role': 'user', 'content': 'Hello'},
+                    {'role': 'assistant', 'content': 'Hi'},
+                    {'role': 'user', 'content': 'How are you?'}
+                ]
+            })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['response'], 'I am fine, thanks!')
+        json_sent = mp.call_args.kwargs['json']
+        self.assertEqual(len(json_sent['messages']), 3)
+
+    def test_test_suite(self):
+        fake = FakeResponse(json_data={'choices': [{'message': {'content': 'def reverse(): pass'}}]})
+        with mock.patch.object(app_module.requests, 'post', return_value=fake):
+            resp = self.client.post('/test-suite', json={
+                'provider': 'openai',
+                'api_key': 'sk-test',
+                'model': 'gpt-4o',
+                'suite': 'coding'
+            })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['suite'], 'coding')
+        self.assertTrue(len(body['results']) >= 3)
+        self.assertEqual(body['results'][0]['status'], 'success')
+
+    def test_ollama_tags(self):
+        fake = FakeResponse(json_data={'models': [{'name': 'llama3:latest', 'size': 4000000000}]})
+        with mock.patch.object(app_module.requests, 'get', return_value=fake):
+            resp = self.client.post('/ollama/tags', json={'base_url': 'http://localhost:11434'})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['models'][0]['name'], 'llama3:latest')
+
+    def test_ollama_pull(self):
+        fake = FakeResponse(json_data={'status': 'success'})
+        with mock.patch.object(app_module.requests, 'post', return_value=fake):
+            resp = self.client.post('/ollama/pull', json={'model': 'llama3:latest'})
+        self.assertEqual(resp.status_code, 200)
+
+
 if __name__ == '__main__':
     unittest.main()
+
 

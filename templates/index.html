@@ -35,37 +35,25 @@
         html, body { height: 100%; margin: 0; padding: 0; }
 
         body {
-                            font-family: system-ui, -apple-system, sans-serif;
-                            background: var(--bg); color: var(--text);
-                        }
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg); color: var(--text);
+        }
         .container {
-                            width: 100vw;
-                            max-width: 100vw;
-                            height: 100vh;
-                            max-height: 100vh;
-                            margin: 0;
-                            padding: 0;
-                            background: var(--bg);
-                            border-radius: 0;
-                            border: none;
-                            box-shadow: none;
-                            overflow: hidden;
-                            display: flex;
-                            flex-direction: column;
-                        }
+            width: 100vw; max-width: 100vw;
+            height: 100vh; max-height: 100vh;
+            margin: 0; padding: 0;
+            background: var(--bg);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
         .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         h1 { margin-top: 0; color: var(--bright); }
         .app-version {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--dim);
-            vertical-align: middle;
-            margin-left: 8px;
-            padding: 2px 8px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            letter-spacing: 0.2px;
+            font-size: 13px; font-weight: 500; color: var(--dim);
+            vertical-align: middle; margin-left: 8px; padding: 2px 8px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 12px; letter-spacing: 0.2px;
         }
         .icon-btn {
             background: var(--bg3); color: var(--text2); border: 1px solid var(--border);
@@ -78,7 +66,7 @@
         .form-row { display: flex; gap: 12px; }
         .form-row .form-group { flex: 1; margin-bottom: 16px; }
         .form-row .form-group.narrow { flex: 0 0 130px; }
-        label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text2); }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text2); font-size: 13px; }
         select, input[type="text"], textarea {
             width: 100%; padding: 10px;
             background: var(--bg); color: var(--text);
@@ -92,13 +80,12 @@
         select option { background: var(--bg2); color: var(--text); }
         button {
             background: var(--green-bg); color: #fff; border: none;
-            padding: 12px 24px; font-size: 15px; border-radius: 6px;
+            padding: 10px 18px; font-size: 14px; border-radius: 6px;
             cursor: pointer; font-weight: 600;
             transition: background 0.15s;
         }
         button:hover { background: var(--green-h); }
         button:disabled { background: var(--bg3); color: var(--dim); cursor: not-allowed; }
-        #result { margin-top: 24px; }
 
         /* Full-screen view layout */
         .view {
@@ -109,29 +96,6 @@
         .view.active {
             display: flex !important;
         }
-        #view-lister {
-            flex-direction: column;
-        }
-        #view-lister > .form-group,
-        #view-lister > .form-row {
-            flex-shrink: 0;
-        }
-        #view-lister > .note {
-            margin-top: 24px;
-            padding-bottom: 24px;
-            flex-shrink: 0;
-        }
-        #view-comparer,
-        #view-settings {
-            flex-direction: column;
-        }
-        #view-comparer > .compare-panel,
-        #view-settings > .provider-card {
-            flex-shrink: 0;
-        }
-        #view-comparer #compare-result {
-            margin-top: 20px;
-        }
 
         /* Model list */
         .models {
@@ -139,8 +103,7 @@
             border-radius: 8px; padding: 0;
             max-height: min(650px, 70vh);
             overflow-y: auto;
-            display: flex;
-            flex-direction: column;
+            display: flex; flex-direction: column;
         }
         .models::-webkit-scrollbar { width: 8px; }
         .models::-webkit-scrollbar-track { background: var(--bg); border-radius: 8px; }
@@ -181,16 +144,16 @@
             font-size: 11px; color: var(--faint); margin-top: 2px;
             font-family: system-ui, sans-serif; word-break: break-word;
         }
-                .model-context {
-                    font-size: 11px; color: var(--accent2); font-weight: 500;
-                    font-family: monospace;
-                }
-                .col-context {
-                    width: 130px; flex-shrink: 0;
-                    text-align: center; padding: 0 8px;
-                    font-family: monospace; font-size: 11px; color: var(--accent2);
-                }
-                .col-response {
+        .model-context {
+            font-size: 11px; color: var(--accent2); font-weight: 500;
+            font-family: monospace;
+        }
+        .col-context {
+            width: 130px; flex-shrink: 0;
+            text-align: center; padding: 0 8px;
+            font-family: monospace; font-size: 11px; color: var(--accent2);
+        }
+        .col-response {
             flex: 1; min-width: 0;
             font-family: system-ui, sans-serif;
             font-size: 12px; color: var(--muted);
@@ -223,18 +186,18 @@
 
         /* Toolbar */
         .toolbar {
-            display: flex; align-items: center; gap: 10px;
+            display: flex; align-items: center; gap: 8px;
             flex-wrap: wrap; margin-bottom: 10px;
-            padding: 10px 12px;
+            padding: 8px 12px;
             background: var(--bg3); border: 1px solid var(--border);
             border-radius: 8px;
         }
         .toolbar label {
             display: inline-flex; align-items: center; gap: 6px;
-            margin: 0; font-weight: 500; font-size: 14px;
+            margin: 0; font-weight: 500; font-size: 13px;
             cursor: pointer; white-space: nowrap; color: var(--text2);
         }
-        .toolbar button { padding: 8px 16px; font-size: 13px; }
+        .toolbar button { padding: 6px 12px; font-size: 13px; }
         .btn-green { background: var(--green-bg); }
         .btn-green:hover { background: var(--green-h); }
         .btn-green:disabled { background: var(--bg3); color: var(--dim); }
@@ -255,20 +218,20 @@
         }
         .prompt-bar .duration-group {
             display: flex; align-items: center; gap: 4px;
-            flex-shrink: 0; white-space: nowrap;
+            flex-shrink: 0; white-space: nowrap; font-size: 13px; color: var(--muted);
         }
         .prompt-bar .duration-group label {
             font-size: 13px; font-weight: 500; margin: 0; color: var(--muted);
         }
         .prompt-bar .duration-group input[type="text"] {
-            width: 60px; text-align: center;
+            width: 50px; text-align: center; padding: 6px;
         }
         .prompt-bar .duration-group input[type="checkbox"] {
             accent-color: var(--accent); cursor: pointer;
         }
         .prompt-bar select { width: auto; flex-shrink: 0; }
         .prompt-bar input[type="text"] { flex: 1; min-width: 200px; }
-        .prompt-bar button { padding: 9px 14px; font-size: 13px; white-space: nowrap; }
+        .prompt-bar button { padding: 8px 14px; font-size: 13px; white-space: nowrap; }
         .advanced-toggle {
             background: transparent; color: var(--muted); border: 1px solid var(--border);
             padding: 6px 12px; font-size: 12px; border-radius: 6px; cursor: pointer;
@@ -280,10 +243,10 @@
             background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
         }
         .advanced-row.open { display: flex; }
-        .advanced-row .form-group { margin: 0; flex: 1; min-width: 160px; }
-        .advanced-row .form-group.narrow { flex: 0 0 120px; }
+        .advanced-row .form-group { margin: 0; flex: 1; min-width: 140px; }
+        .advanced-row .form-group.narrow { flex: 0 0 110px; }
 
-        /* Single-model test panel */
+        /* Test panel */
         .test-panel {
             margin-top: 16px;
             background: var(--bg3); border: 1px solid var(--border);
@@ -291,12 +254,6 @@
         }
         .test-panel h3 { margin: 0 0 12px 0; font-size: 15px; color: var(--text); }
         .test-panel code { background: var(--bg); padding: 2px 6px; border-radius: 4px; color: var(--accent2); }
-        textarea {
-            width: 100%; padding: 10px;
-            background: var(--bg); color: var(--text);
-            border: 1px solid var(--border); border-radius: 6px;
-            font-size: 14px; resize: vertical;
-        }
         .response {
             background: var(--bg); border: 1px solid var(--border);
             padding: 12px; border-radius: 6px;
@@ -311,7 +268,7 @@
         .count { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
         .note { font-size: 12px; color: var(--dim); margin-top: 20px; }
 
-        /* Image upload & preview */
+        /* Image preview */
         .image-chip-container {
             display: flex; align-items: center; gap: 8px;
             margin: 8px 0; flex-wrap: wrap;
@@ -337,15 +294,10 @@
         }
         .image-chip .img-remove:hover { color: var(--red); }
         .badge-vision {
-            display: inline-block;
-            font-size: 10px;
-            padding: 1px 5px;
-            border-radius: 4px;
-            background: rgba(88, 166, 255, 0.15);
-            color: var(--accent);
-            border: 1px solid rgba(88, 166, 255, 0.3);
-            margin-right: 4px;
-            font-weight: 500;
+            display: inline-block; font-size: 10px; padding: 1px 5px;
+            border-radius: 4px; background: rgba(88, 166, 255, 0.15);
+            color: var(--accent); border: 1px solid rgba(88, 166, 255, 0.3);
+            margin-right: 4px; font-weight: 500;
         }
 
         /* Update banner */
@@ -398,7 +350,6 @@
 
         /* Provider comparison */
         .compare-panel {
-            margin-top: 24px;
             background: var(--bg2); padding: 20px;
             border-radius: 12px; border: 1px solid var(--border);
         }
@@ -444,12 +395,6 @@
         }
         .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
         .copy-btn.copied { color: var(--green); border-color: var(--green); }
-        .expand-btn {
-            background: transparent; border: 1px solid var(--border); color: var(--muted);
-            border-radius: 4px; padding: 1px 5px; margin-left: 4px;
-            font-size: 11px; cursor: pointer; vertical-align: middle;
-        }
-        .expand-btn:hover { color: var(--accent); border-color: var(--accent); }
 
         /* Side panel navigation */
         .layout { display: flex; gap: 0; min-height: 0; flex: 1; overflow: hidden; }
@@ -461,22 +406,16 @@
             transition: width 0.2s ease;
             overflow: hidden;
         }
-        .sidebar-header {
-            padding: 8px; border-bottom: 1px solid var(--border);
-        }
-        .sidebar-header .icon-btn {
-            width: 100%; justify-content: center;
-        }
-        .sidebar-items {
-            flex: 1; overflow-y: auto; padding: 8px 0;
-        }
+        .sidebar-header { padding: 8px; border-bottom: 1px solid var(--border); }
+        .sidebar-header .icon-btn { width: 100%; justify-content: center; }
+        .sidebar-items { flex: 1; overflow-y: auto; padding: 8px 0; }
         .side-item {
             display: flex; align-items: center; gap: 10px;
             width: calc(100% - 16px); text-align: left;
             background: var(--bg); color: var(--text2);
             border: 1px solid var(--border); border-radius: 6px;
             padding: 10px 12px; margin: 0 8px 8px;
-            cursor: pointer; font-size: 14px; font-weight: 600;
+            cursor: pointer; font-size: 13px; font-weight: 600;
             transition: background 0.15s, border-color 0.15s;
         }
         .side-item:last-child { margin-bottom: 0; }
@@ -494,9 +433,7 @@
                 margin: 0 4px 8px;
                 width: calc(100% - 8px);
             }
-            .layout.sidebar-collapsed .side-panel .sidebar-header {
-                padding: 8px 4px;
-            }
+            .layout.sidebar-collapsed .side-panel .sidebar-header { padding: 8px 4px; }
         }
 
         .main-content { flex: 1; min-width: 0; overflow: auto; padding: 20px; }
@@ -507,6 +444,27 @@
             .sidebar-header { display: none; }
             .sidebar-items { display: flex; flex-direction: row; gap: 8px; padding: 8px !important; overflow-x: auto; }
             .side-item { width: auto; flex: 1; margin: 0; justify-content: center; }
+        }
+
+        /* Chat view styles */
+        .chat-container {
+            display: flex; flex-direction: column; height: calc(100vh - 280px); min-height: 380px;
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+        }
+        .chat-history {
+            flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+        }
+        .chat-msg {
+            max-width: 80%; padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word;
+        }
+        .chat-msg.user {
+            align-self: flex-end; background: var(--blue-bg); color: #fff; border-bottom-right-radius: 2px;
+        }
+        .chat-msg.assistant {
+            align-self: flex-start; background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: 2px;
+        }
+        .chat-controls {
+            padding: 12px; background: var(--bg3); border-top: 1px solid var(--border); display: flex; gap: 8px;
         }
 
         /* Toasts */
@@ -551,7 +509,7 @@
         <header class="header-row" style="flex-shrink: 0; border-bottom: 1px solid var(--border); padding: 12px 20px; background: var(--bg2);">
             <h1 style="margin: 0; font-size: 1.25rem;">AI Model Lister <span class="app-version">v{{ version }}</span></h1>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 0.75rem; color: var(--muted);">Supports OpenAI-compatible APIs (OpenAI, OpenRouter, Azure, Ollama, DeepSeek, Mistral, Groq, Together), xAI Grok, Google Gemini, and Anthropic Claude.</span>
+                <span style="font-size: 0.75rem; color: var(--muted);">Supports OpenAI, Anthropic, Gemini, xAI, DeepSeek, Groq, Ollama, Bedrock, Vertex, and more.</span>
                 <button class="icon-btn" onclick="openPricing()" title="Edit per-model pricing">💵 Pricing</button>
                 <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
             </div>
@@ -569,12 +527,18 @@
                     <button class="icon-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
                 </div>
                 <div class="sidebar-items">
-                    <button class="side-item active" data-view="lister" onclick="switchView('lister')" title="AI Model Lister"><span class="nav-icon">📋</span><span class="nav-label">AI Model Lister</span></button>
-                    <button class="side-item" data-view="comparer" onclick="switchView('comparer')" title="AI Model Comparer"><span class="nav-icon">⚖️</span><span class="nav-label">AI Model Comparer</span></button>
+                    <button class="side-item active" data-view="lister" onclick="switchView('lister')" title="AI Model Lister"><span class="nav-icon">📋</span><span class="nav-label">Model Lister</span></button>
+                    <button class="side-item" data-view="comparer" onclick="switchView('comparer')" title="AI Model Comparer"><span class="nav-icon">⚖️</span><span class="nav-label">Model Comparer</span></button>
+                    <button class="side-item" data-view="chat" onclick="switchView('chat')" title="Multi-Turn Chat"><span class="nav-icon">💬</span><span class="nav-label">Chat Mode</span></button>
+                    <button class="side-item" data-view="ab" onclick="switchView('ab')" title="A/B Blind Arena"><span class="nav-icon">🥊</span><span class="nav-label">A/B Arena</span></button>
+                    <button class="side-item" data-view="suites" onclick="switchView('suites')" title="Benchmark Suites"><span class="nav-icon">🧪</span><span class="nav-label">Benchmarks</span></button>
+                    <button class="side-item" data-view="ollama" onclick="switchView('ollama')" title="Ollama Manager"><span class="nav-icon">🦙</span><span class="nav-label">Ollama Manager</span></button>
                     <button class="side-item" data-view="settings" onclick="switchView('settings')" title="Settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></button>
                 </div>
             </nav>
+
             <div class="main-content">
+                <!-- VIEW: MODEL LISTER -->
                 <section id="view-lister" class="view active">
                     <div class="form-group">
                         <label for="provider">Provider</label>
@@ -591,6 +555,8 @@
                             <option value="gemini" {% if default_provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
                             <option value="claude" {% if default_provider == 'claude' %}selected{% endif %}>Anthropic Claude</option>
                             <option value="nvidia" {% if default_provider == 'nvidia' %}selected{% endif %}>NVIDIA NIM</option>
+                            <option value="bedrock" {% if default_provider == 'bedrock' %}selected{% endif %}>AWS Bedrock</option>
+                            <option value="vertex" {% if default_provider == 'vertex' %}selected{% endif %}>Google Vertex AI</option>
                         </select>
                     </div>
 
@@ -620,15 +586,15 @@
                     <div id="result"></div>
 
                     <div class="note">
-                        Your API key is only used for requests and never stored. Other settings are
-                        remembered in this browser's localStorage. Press <code>Ctrl+Enter</code> to run a test.
+                        Your API key is only used for requests and never stored. Press <code>Ctrl+Enter</code> to run tests.
                     </div>
                 </section>
 
+                <!-- VIEW: COMPARER -->
                 <section id="view-comparer" class="view">
                     <div class="compare-panel">
                         <h2>Compare two providers</h2>
-                        <p>Fetch model lists for two providers and see which models exist in both, only Provider A, or only Provider B. Matching is by exact model ID.</p>
+                        <p>Fetch model lists for two providers and see which models exist in both, only Provider A, or only Provider B.</p>
 
                         <div class="provider-grid">
                             <div class="provider-card">
@@ -638,7 +604,7 @@
                                     <select id="compare-a-provider"></select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="compare-a-base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                                    <label for="compare-a-base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional)</span></label>
                                     <input type="text" id="compare-a-base_url">
                                 </div>
                                 <div class="form-row">
@@ -652,8 +618,8 @@
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="compare-a-headers">Extra Headers <span style="font-weight:400;color:var(--dim)">(optional JSON object)</span></label>
-                                    <input type="text" id="compare-a-headers" placeholder='{"HTTP-Referer": "https://example.com"}'>
+                                    <label for="compare-a-headers">Extra Headers</label>
+                                    <input type="text" id="compare-a-headers" placeholder='{}'>
                                 </div>
                             </div>
 
@@ -664,7 +630,7 @@
                                     <select id="compare-b-provider"></select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="compare-b-base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                                    <label for="compare-b-base_url">Base URL <span style="font-weight:400;color:var(--dim)">(optional)</span></label>
                                     <input type="text" id="compare-b-base_url">
                                 </div>
                                 <div class="form-row">
@@ -678,46 +644,222 @@
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="compare-b-headers">Extra Headers <span style="font-weight:400;color:var(--dim)">(optional JSON object)</span></label>
-                                    <input type="text" id="compare-b-headers" placeholder='{"HTTP-Referer": "https://example.com"}'>
+                                    <label for="compare-b-headers">Extra Headers</label>
+                                    <input type="text" id="compare-b-headers" placeholder='{}'>
                                 </div>
                             </div>
                         </div>
 
-                        <button class="btn-blue" onclick="compareProviders()">Compare Providers</button>
-                        <div class="prompt-bar" style="margin-top:10px">
+                        <button class="btn-blue" style="margin-top:16px;" onclick="compareProviders()">Compare Providers</button>
+                        <div class="prompt-bar" style="margin-top:16px">
                             <input type="text" id="compare-search" placeholder="Search comparison models..." oninput="filterCompareModels()">
                         </div>
                         <div id="compare-result"></div>
                     </div>
                 </section>
 
+                <!-- VIEW: MULTI-TURN CHAT -->
+                <section id="view-chat" class="view">
+                    <div class="provider-card" style="margin-bottom: 16px;">
+                        <h3>Chat Session Configuration</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="chat-provider">Provider</label>
+                                <select id="chat-provider" onchange="updateChatProviderUI()"></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="chat-model">Model ID</label>
+                                <input type="text" id="chat-model" placeholder="e.g. gpt-4o, claude-3-5-sonnet, llama3">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="chat-base-url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                            <input type="text" id="chat-base-url" value="{{ default_base_url }}">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="chat-api-key">API Key</label>
+                                <input type="text" id="chat-api-key" placeholder="API Key (or leave empty for Ollama)">
+                            </div>
+                            <div class="form-group">
+                                <label for="chat-system">System Prompt <span style="font-weight:400;color:var(--dim)">(optional)</span></label>
+                                <input type="text" id="chat-system" placeholder="e.g. You are a helpful AI assistant.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-container">
+                        <div class="chat-history" id="chatHistory">
+                            <div class="chat-msg assistant">Hello! I am ready to test multi-turn conversations. Type your message below.</div>
+                        </div>
+                        <div class="chat-controls">
+                            <input type="text" id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                            <button class="btn-green" onclick="sendChatMessage()">Send</button>
+                            <button class="btn-orange" onclick="clearChat()">Clear</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: A/B BLIND ARENA -->
+                <section id="view-ab" class="view">
+                    <div class="compare-panel">
+                        <h2>🥊 A/B Blind Evaluation Arena</h2>
+                        <p>Configure candidate A and candidate B, then run a side-by-side prompt test without knowing which response belongs to which model!</p>
+
+                        <div class="provider-grid">
+                            <div class="provider-card">
+                                <h3>Candidate A</h3>
+                                <div class="form-group">
+                                    <label for="ab-provider-a">Provider</label>
+                                    <select id="ab-provider-a" onchange="updateABProviderUI('a')"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ab-model-a">Model ID</label>
+                                    <input type="text" id="ab-model-a" placeholder="e.g. gpt-4o">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ab-base-url-a">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty for default)</span></label>
+                                    <input type="text" id="ab-base-url-a">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ab-api-key-a">API Key</label>
+                                    <input type="text" id="ab-api-key-a" autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="provider-card">
+                                <h3>Candidate B</h3>
+                                <div class="form-group">
+                                    <label for="ab-provider-b">Provider</label>
+                                    <select id="ab-provider-b" onchange="updateABProviderUI('b')"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ab-model-b">Model ID</label>
+                                    <input type="text" id="ab-model-b" placeholder="e.g. claude-3-5-sonnet">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ab-base-url-b">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty for default)</span></label>
+                                    <input type="text" id="ab-base-url-b">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ab-api-key-b">API Key</label>
+                                    <input type="text" id="ab-api-key-b" autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label for="ab-prompt">Evaluation Prompt</label>
+                            <textarea id="ab-prompt" rows="3" placeholder="Enter evaluation prompt...">Explain quantum computing in simple terms with an everyday analogy.</textarea>
+                        </div>
+                        <button class="btn-blue" onclick="startABTest()">Run Blind Test</button>
+
+                        <div id="abResults" style="margin-top: 20px; display: none;">
+                            <div class="provider-grid">
+                                <div class="provider-card" id="card-model-1">
+                                    <h4>Response #1</h4>
+                                    <div id="ab-resp-1" class="response">Loading...</div>
+                                    <div style="margin-top: 10px;">
+                                        <button class="btn-green" onclick="voteAB(1)">Vote #1 Best</button>
+                                    </div>
+                                </div>
+                                <div class="provider-card" id="card-model-2">
+                                    <h4>Response #2</h4>
+                                    <div id="ab-resp-2" class="response">Loading...</div>
+                                    <div style="margin-top: 10px;">
+                                        <button class="btn-green" onclick="voteAB(2)">Vote #2 Best</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 16px; display: flex; gap: 10px; align-items: center;">
+                                <button class="btn-orange" id="revealBtn" onclick="revealAB()">Reveal Model Identities</button>
+                                <span id="abRevealText" style="font-weight: bold; font-size: 14px;"></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: BENCHMARK SUITES -->
+                <section id="view-suites" class="view">
+                    <div class="provider-card">
+                        <h3>🧪 Automated Benchmark Suites</h3>
+                        <p>Run a standardized evaluation suite across a target model to measure reasoning, coding, or safety.</p>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="suite-provider">Provider</label>
+                                <select id="suite-provider" onchange="updateSuiteProviderUI()"></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="suite-model">Model ID</label>
+                                <input type="text" id="suite-model" placeholder="e.g. gpt-4o, llama3">
+                            </div>
+                            <div class="form-group">
+                                <label for="suiteSelect">Benchmark Suite</label>
+                                <select id="suiteSelect">
+                                    <option value="coding">Python / Coding Challenges</option>
+                                    <option value="logic">Logic &amp; Reasoning Puzzles</option>
+                                    <option value="creative">Creative Writing &amp; Haiku</option>
+                                    <option value="safety">Safety &amp; Alignment Verification</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="suite-base-url">Base URL <span style="font-weight:400;color:var(--dim)">(optional — leave empty to use default)</span></label>
+                            <input type="text" id="suite-base-url" value="{{ default_base_url }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="suite-api-key">API Key</label>
+                            <input type="text" id="suite-api-key" placeholder="API Key">
+                        </div>
+                        <button class="btn-blue" onclick="runSuite()">Run Benchmark Suite</button>
+                    </div>
+
+                    <div id="suiteResults" style="margin-top: 20px;"></div>
+                </section>
+
+                <!-- VIEW: OLLAMA MANAGER -->
+                <section id="view-ollama" class="view">
+                    <div class="provider-card">
+                        <h3>🦙 Ollama Local Model Manager</h3>
+                        <p>Manage local models running on your Ollama server instance directly from the UI.</p>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ollamaHost">Ollama Host URL</label>
+                                <input type="text" id="ollamaHost" value="http://localhost:11434">
+                            </div>
+                            <div class="form-group">
+                                <label for="ollamaPullModel">Pull New Model</label>
+                                <input type="text" id="ollamaPullModel" placeholder="e.g. llama3:8b, mistral, qwen2.5:7b">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-green" onclick="pullOllama()">Pull Model</button>
+                            <button class="btn-blue" onclick="refreshOllamaTags()">Refresh Installed Models</button>
+                        </div>
+                    </div>
+
+                    <div class="provider-card" style="margin-top: 16px;">
+                        <h3>Installed Models</h3>
+                        <div id="ollamaTagsList"><p style="color:var(--muted)">Click "Refresh Installed Models" to list local models.</p></div>
+                    </div>
+                </section>
+
+                <!-- VIEW: SETTINGS -->
                 <section id="view-settings" class="view">
                     <div class="provider-card" style="max-width:650px;">
                         <h3>Server Environment (.env)</h3>
                         <p style="margin-top:4px;margin-bottom:18px;">Configure global environment defaults saved directly into the server's <code>.env</code> file.</p>
 
                         <div class="form-group">
-                            <label for="env-default-base-url">DEFAULT_BASE_URL <span style="font-weight:400;color:var(--dim)">(leave empty for OpenAI official: <code>https://api.openai.com/v1</code>)</span></label>
+                            <label for="env-default-base-url">DEFAULT_BASE_URL</label>
                             <input type="text" id="env-default-base-url" placeholder="https://api.openai.com/v1">
                         </div>
 
                         <div class="form-group">
-                            <label for="env-default-provider">DEFAULT_PROVIDER <span style="font-weight:400;color:var(--dim)">(provider selected on first load)</span></label>
-                            <select id="env-default-provider">
-                                <option value="openai">OpenAI Compatible (OpenAI, Groq, Together...)</option>
-                                <option value="openrouter">OpenRouter</option>
-                                <option value="azure">Azure OpenAI</option>
-                                <option value="ollama">Ollama (local)</option>
-                                <option value="deepseek">DeepSeek</option>
-                                <option value="mistral">Mistral</option>
-                                <option value="groq">Groq</option>
-                                <option value="together">Together</option>
-                                <option value="xai">xAI Grok</option>
-                                <option value="gemini">Google Gemini</option>
-                                <option value="claude">Anthropic Claude</option>
-                                <option value="nvidia">NVIDIA NIM</option>
-                            </select>
+                            <label for="env-default-provider">DEFAULT_PROVIDER</label>
+                            <select id="env-default-provider"></select>
                         </div>
 
                         <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
@@ -754,10 +896,10 @@
         let currentProvider = DEFAULT_PROVIDER;
         let currentHeaders = {};
         let currentTimeout = 180;
-        let currentModels = [];   // [{id, meta}]
+        let currentModels = [];
         let batchAbort = false;
         let batchRunning = false;
-        let testResults = [];     // [{model, status, response, time, ttft, usage}]
+        let testResults = [];
         let pendingSettings = null;
         let sortState = { key: null, dir: 1 };
 
@@ -778,7 +920,9 @@
             xai: 'https://api.x.ai/v1',
             gemini: 'https://generativelanguage.googleapis.com/v1beta',
             claude: 'https://api.anthropic.com/v1',
-            nvidia: 'https://integrate.api.nvidia.com/v1'
+            nvidia: 'https://integrate.api.nvidia.com/v1',
+            bedrock: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+            vertex: 'https://us-central1-aiplatform.googleapis.com/v1'
         };
 
         const KEY_PLACEHOLDERS = {
@@ -793,7 +937,9 @@
             xai: 'xai-... (xAI API key)',
             gemini: 'AIzaSy... (Gemini API key)',
             claude: 'sk-ant-... (Anthropic API key)',
-            nvidia: 'nvapi-... (NVIDIA API key)'
+            nvidia: 'nvapi-... (NVIDIA API key)',
+            bedrock: 'AWS Access Key / Bearer',
+            vertex: 'OAuth Bearer Token / API Key'
         };
 
         const PROVIDER_LABELS = {
@@ -808,37 +954,26 @@
             xai: 'xAI Grok',
             gemini: 'Google Gemini',
             claude: 'Anthropic Claude',
-            nvidia: 'NVIDIA NIM'
+            nvidia: 'NVIDIA NIM',
+            bedrock: 'AWS Bedrock',
+            vertex: 'Google Vertex AI'
         };
 
-        // Built-in price estimates (USD per 1M tokens), matched by substring on the model id.
         const PRICING_DEFAULTS = {
             'gpt-4o-mini': { in: 0.15, out: 0.60 },
             'gpt-4o': { in: 2.50, out: 10.0 },
-            'gpt-4.1-mini': { in: 0.40, out: 1.60 },
-            'gpt-4.1-nano': { in: 0.10, out: 0.40 },
-            'gpt-4.1': { in: 2.00, out: 8.00 },
-            'gpt-4.5': { in: 5.00, out: 15.0 },
             'o3-mini': { in: 1.10, out: 4.40 },
-            'o4-mini': { in: 1.10, out: 4.40 },
-            'o3': { in: 10.0, out: 40.0 },
             'o1': { in: 15.0, out: 60.0 },
-            'claude-opus': { in: 15.0, out: 75.0 },
-            'claude-sonnet': { in: 3.00, out: 15.0 },
+            'claude-3-7-sonnet': { in: 3.00, out: 15.0 },
             'claude-3-5-sonnet': { in: 3.00, out: 15.0 },
             'claude-3-5-haiku': { in: 0.80, out: 4.00 },
-            'claude-haiku': { in: 0.80, out: 4.00 },
-            'gemini-2.5-pro': { in: 1.25, out: 10.0 },
-            'gemini-2.5-flash': { in: 0.075, out: 0.30 },
             'gemini-2.0-flash': { in: 0.10, out: 0.40 },
             'gemini-1.5-pro': { in: 1.25, out: 5.00 },
             'gemini-1.5-flash': { in: 0.075, out: 0.30 },
-            'grok-3': { in: 3.00, out: 15.0 },
             'grok-2': { in: 2.00, out: 10.0 },
             'deepseek-reasoner': { in: 0.55, out: 2.19 },
             'deepseek-chat': { in: 0.27, out: 1.10 },
             'mistral-large': { in: 2.00, out: 6.00 },
-            'mistral-small': { in: 0.20, out: 0.60 },
             'llama-3.3-70b': { in: 0.59, out: 0.79 }
         };
 
@@ -847,13 +982,13 @@
         function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
         function esc(s) {
-            return String(s).replace(/[&<>"']/g, c => ({
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[c]));
         }
 
         function preview(s) {
-            return String(s).replace(/\n/g, ' ').substring(0, 150);
+            return String(s || '').replace(/\n/g, ' ').substring(0, 150);
         }
 
         function toast(msg, type = 'info') {
@@ -882,7 +1017,7 @@
             }
         }
 
-        /* ---------- pricing ---------- */
+        /* ---------- Pricing ---------- */
 
         function getPricingOverrides() {
             try { return JSON.parse(localStorage.getItem(PRICING_KEY) || '{}') || {}; }
@@ -957,7 +1092,7 @@
             renderBatchSummary();
         }
 
-        /* ---------- theme ---------- */
+        /* ---------- Theme ---------- */
 
         function setTheme(theme) {
             document.body.classList.toggle('light', theme === 'light');
@@ -975,13 +1110,13 @@
             setTheme(theme);
         }
 
-        /* ---------- placeholders / settings ---------- */
+        /* ---------- Settings / Placeholders ---------- */
 
         function updatePlaceholders() {
             const provider = document.getElementById('provider').value;
             const def = PROVIDER_DEFAULTS[provider] || '';
             const baseUrlInput = document.getElementById('base_url');
-            baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. https://YOUR-RESOURCE.openai.azure.com/openai/v1)';
+            baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. custom endpoint)';
             document.getElementById('api_key').placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
         }
 
@@ -990,11 +1125,53 @@
             document.getElementById('base_url').value = PROVIDER_DEFAULTS[document.getElementById('provider').value] || '';
         }
 
+        function updateChatProviderUI() {
+            const provider = document.getElementById('chat-provider').value;
+            const def = PROVIDER_DEFAULTS[provider] || '';
+            const baseUrlInput = document.getElementById('chat-base-url');
+            if (baseUrlInput) {
+                baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. custom endpoint)';
+                baseUrlInput.value = def;
+            }
+            const apiKeyInput = document.getElementById('chat-api-key');
+            if (apiKeyInput) {
+                apiKeyInput.placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
+            }
+        }
+
+        function updateSuiteProviderUI() {
+            const provider = document.getElementById('suite-provider').value;
+            const def = PROVIDER_DEFAULTS[provider] || '';
+            const baseUrlInput = document.getElementById('suite-base-url');
+            if (baseUrlInput) {
+                baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. custom endpoint)';
+                baseUrlInput.value = def;
+            }
+            const apiKeyInput = document.getElementById('suite-api-key');
+            if (apiKeyInput) {
+                apiKeyInput.placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
+            }
+        }
+
+        function updateABProviderUI(side) {
+            const provider = document.getElementById(`ab-provider-${side}`).value;
+            const def = PROVIDER_DEFAULTS[provider] || '';
+            const baseUrlInput = document.getElementById(`ab-base-url-${side}`);
+            if (baseUrlInput) {
+                baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. custom endpoint)';
+                baseUrlInput.value = def;
+            }
+            const apiKeyInput = document.getElementById(`ab-api-key-${side}`);
+            if (apiKeyInput) {
+                apiKeyInput.placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
+            }
+        }
+
         function getTimeoutInput() {
             return parseInt(document.getElementById('timeout').value) || 180;
         }
 
-        let currentAttachedImage = null; // { dataUrl, name, size }
+        let currentAttachedImage = null;
 
         function handleImageFileSelect(input) {
             const file = input.files && input.files[0];
@@ -1005,7 +1182,7 @@
 
         function processAndAttachImage(file) {
             if (!file.type || !file.type.startsWith('image/')) {
-                toast('Please select a valid image file (PNG, JPG, WebP, GIF).', 'error');
+                toast('Please select a valid image file.', 'error');
                 return;
             }
             const reader = new FileReader();
@@ -1013,30 +1190,19 @@
                 const img = new Image();
                 img.onload = function() {
                     const maxDim = 1600;
-                    let w = img.width;
-                    let h = img.height;
+                    let w = img.width, h = img.height;
                     if (w > maxDim || h > maxDim) {
-                        if (w > h) {
-                            h = Math.round((h * maxDim) / w);
-                            w = maxDim;
-                        } else {
-                            w = Math.round((w * maxDim) / h);
-                            h = maxDim;
-                        }
+                        if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                        else { w = Math.round((w * maxDim) / h); h = maxDim; }
                     }
                     const canvas = document.createElement('canvas');
-                    canvas.width = w;
-                    canvas.height = h;
+                    canvas.width = w; canvas.height = h;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, w, h);
                     const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
                     const dataUrl = canvas.toDataURL(mime, 0.88);
                     const sizeKb = Math.round((dataUrl.length * 3 / 4) / 1024);
-                    setAttachedImage({
-                        dataUrl: dataUrl,
-                        name: file.name || 'image.png',
-                        size: `${sizeKb} KB`
-                    });
+                    setAttachedImage({ dataUrl, name: file.name || 'image.png', size: `${sizeKb} KB` });
                 };
                 img.src = e.target.result;
             };
@@ -1052,24 +1218,12 @@
                 return;
             }
             const name = trimmed.split('/').pop().split('?')[0] || 'remote-image';
-            setAttachedImage({
-                dataUrl: trimmed,
-                name: name,
-                size: 'URL'
-            });
+            setAttachedImage({ dataUrl: trimmed, name, size: 'URL' });
         }
 
         function setAttachedImage(imgObj) {
             currentAttachedImage = imgObj;
             renderImageChips();
-            const bp = document.getElementById('batch-prompt');
-            if (bp && (bp.value === 'Hi' || !bp.value.trim())) {
-                bp.value = 'Describe this image in detail.';
-            }
-            const sp = document.getElementById('prompt');
-            if (sp && (sp.value === 'Hi' || !sp.value.trim())) {
-                sp.value = 'Describe this image in detail.';
-            }
             toast(`Image attached: ${imgObj.name}`, 'info');
         }
 
@@ -1099,17 +1253,13 @@
             });
         }
 
-        // Support pasting images from clipboard directly
         window.addEventListener('paste', function(e) {
             const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
             if (!items) return;
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type && items[i].type.indexOf('image') !== -1) {
                     const blob = items[i].getAsFile();
-                    if (blob) {
-                        processAndAttachImage(blob);
-                        break;
-                    }
+                    if (blob) { processAndAttachImage(blob); break; }
                 }
             }
         });
@@ -1118,9 +1268,21 @@
             const maxTok = parseInt(document.getElementById('batch-max-tokens')?.value) || 300;
             const tempRaw = document.getElementById('batch-temperature')?.value;
             const temp = tempRaw === '' || tempRaw == null ? 0.7 : parseFloat(tempRaw);
+            const topPRaw = document.getElementById('batch-top-p')?.value;
+            const topP = topPRaw === '' || topPRaw == null ? 1.0 : parseFloat(topPRaw);
+            const freqPenalty = parseFloat(document.getElementById('batch-frequency-penalty')?.value) || 0.0;
+            const presPenalty = parseFloat(document.getElementById('batch-presence-penalty')?.value) || 0.0;
             const system = (document.getElementById('batch-system')?.value || '').trim();
             const image = currentAttachedImage ? currentAttachedImage.dataUrl : '';
-            return { max_tokens: maxTok, temperature: isNaN(temp) ? 0.7 : temp, system, image };
+            return {
+                max_tokens: maxTok,
+                temperature: isNaN(temp) ? 0.7 : temp,
+                top_p: isNaN(topP) ? 1.0 : topP,
+                frequency_penalty: freqPenalty,
+                presence_penalty: presPenalty,
+                system,
+                image
+            };
         }
 
         function parseHeadersString(raw) {
@@ -1130,7 +1292,7 @@
                 if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw new Error('not an object');
                 return obj;
             } catch (e) {
-                return null; // invalid
+                return null;
             }
         }
 
@@ -1151,11 +1313,14 @@
                     prompt: document.getElementById('batch-prompt')?.value,
                     max_tokens: document.getElementById('batch-max-tokens')?.value,
                     temperature: document.getElementById('batch-temperature')?.value,
+                    top_p: document.getElementById('batch-top-p')?.value,
+                    frequency_penalty: document.getElementById('batch-frequency-penalty')?.value,
+                    presence_penalty: document.getElementById('batch-presence-penalty')?.value,
                     system: document.getElementById('batch-system')?.value,
                     stream: document.getElementById('batch-stream')?.checked,
                     advanced: document.getElementById('advanced-row')?.classList.contains('open')
                 }));
-            } catch (e) { /* storage unavailable */ }
+            } catch (e) {}
         }
 
         function loadSettings() {
@@ -1181,7 +1346,7 @@
             saveSettings();
         }
 
-        /* ---------- prompt presets ---------- */
+        /* ---------- Prompt Presets ---------- */
 
         function getPresets() {
             try { return JSON.parse(localStorage.getItem(PROMPTS_KEY) || '{}'); } catch (e) { return {}; }
@@ -1210,9 +1375,10 @@
             presets[name] = text;
             try { localStorage.setItem(PROMPTS_KEY, JSON.stringify(presets)); } catch (e) {}
             renderPresetOptions();
+            toast(`Preset saved: ${name}`, 'success');
         }
 
-        /* ---------- checked-model persistence ---------- */
+        /* ---------- Model Persistence ---------- */
 
         function checkedKey() {
             return `model-lister:checked:${currentProvider}:${currentBaseUrl || PROVIDER_DEFAULTS[currentProvider] || 'default'}`;
@@ -1236,7 +1402,7 @@
             if (selectAll) selectAll.checked = false;
         }
 
-        /* ---------- listing models ---------- */
+        /* ---------- Model Listing ---------- */
 
         async function listModels() {
             const provider = document.getElementById('provider').value;
@@ -1281,7 +1447,6 @@
                 });
 
                 const data = await res.json();
-
                 if (!res.ok) {
                     resultDiv.innerHTML = `<div class="error">${esc(data.error || 'Request failed')}</div>`;
                     return;
@@ -1296,7 +1461,6 @@
 
         function renderModelList(models, count) {
             const resultDiv = document.getElementById('result');
-
             let html = `<div class="count">${count} models found</div>`;
 
             // Prompt bar
@@ -1306,8 +1470,8 @@
                 </select>
                 <input type="text" id="batch-prompt" value="Hi" placeholder="Enter test prompt...">
                 <button class="btn-blue" onclick="savePromptPreset()">Save Preset</button>
-                <button type="button" class="icon-btn" title="Attach image file (or paste with Ctrl+V)" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
-                <button type="button" class="icon-btn" title="Attach image by URL" onclick="promptImageUrl()">🔗 URL</button>
+                <button type="button" class="icon-btn" title="Attach image file" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
+                <button type="button" class="icon-btn" title="Attach image URL" onclick="promptImageUrl()">🔗 URL</button>
                 <input type="file" id="batch-image-file" accept="image/*" style="display:none" onchange="handleImageFileSelect(this)">
                 <div class="duration-group">
                     <label for="batch-delay">Wait</label>
@@ -1319,15 +1483,14 @@
                     <input type="text" id="batch-concurrency" value="1">
                 </div>
                 <label class="duration-group">
-                    <input type="checkbox" id="batch-stream"> Stream (TTFT)
+                    <input type="checkbox" id="batch-stream"> Stream
                 </label>
                 <button class="advanced-toggle" id="advanced-toggle" onclick="toggleAdvanced()">Advanced ▾</button>
             </div>`;
 
-            // Image chip container
             html += `<div class="image-chip-container" id="batch-image-chip" style="display:none"></div>`;
 
-            // Advanced (generation params)
+            // Advanced settings row
             html += `<div class="advanced-row" id="advanced-row">
                 <div class="form-group">
                     <label for="batch-system">System prompt</label>
@@ -1341,6 +1504,18 @@
                     <label for="batch-temperature">Temperature</label>
                     <input type="text" id="batch-temperature" value="0.7">
                 </div>
+                <div class="form-group narrow">
+                    <label for="batch-top-p">Top P</label>
+                    <input type="text" id="batch-top-p" value="1.0">
+                </div>
+                <div class="form-group narrow">
+                    <label for="batch-frequency-penalty">Freq Penalty</label>
+                    <input type="text" id="batch-frequency-penalty" value="0.0">
+                </div>
+                <div class="form-group narrow">
+                    <label for="batch-presence-penalty">Pres Penalty</label>
+                    <input type="text" id="batch-presence-penalty" value="0.0">
+                </div>
             </div>`;
 
             // Toolbar
@@ -1350,52 +1525,52 @@
                 <button class="btn-blue" onclick="compareSelected()">Compare Selected</button>
                 <button class="btn-green" id="btn-test-selected" onclick="testSelected()">Test Selected</button>
                 <button class="btn-orange" id="btn-retry-failed" onclick="retryFailed()" style="display:none">Retry Failed</button>
+                <button class="btn-blue" id="btn-export-md" onclick="exportMarkdown()" style="display:none">Export Markdown</button>
                 <button class="btn-blue" id="btn-export-csv" onclick="exportCSV()" style="display:none">Export CSV</button>
                 <button class="btn-blue" id="btn-export-json" onclick="exportJSON()" style="display:none">Export JSON</button>
-                <button class="btn-orange" id="btn-clear-saved" onclick="clearSavedResults()" style="display:none">Clear Saved Results</button>
+                <button class="btn-orange" id="btn-clear-saved" onclick="clearSavedResults()" style="display:none">Clear Saved</button>
                 <button class="btn-red" id="btn-stop" onclick="stopBatch()" style="display:none">Stop</button>
             </div>`;
 
-            // Progress + summary
+            // Progress & Summary
             html += `<div id="progress-section" style="display:none">
                 <div class="progress-text" id="progress-text"></div>
                 <div class="progress-bar-container"><div class="progress-bar-fill" id="progress-bar"></div></div>
             </div>`;
             html += `<div class="summary-row" id="batch-summary"></div>`;
 
-            // Search bar
+            // Search & Manual Entry
             html += `<div class="prompt-bar">
                 <input type="text" id="model-search" placeholder="Search models..." oninput="filterModels()">
                 <button class="btn-blue" onclick="selectAllFiltered()">Select All Filtered</button>
             </div>`;
+            html += `<div class="prompt-bar">
+                <input type="text" id="manual-model-input" placeholder="Enter custom model name (e.g., gpt-4o, claude-3.5-sonnet)..." style="flex:1; min-width:250px;">
+                <button class="btn-blue" onclick="addManualModel()">Add Model</button>
+            </div>`;
 
-                        // Manual model entry
-                        html += `<div class="prompt-bar">
-                            <input type="text" id="manual-model-input" placeholder="Enter custom model name (e.g., gpt-4o, claude-3.5-sonnet)..." style="flex:1; min-width:250px;">
-                            <button class="btn-blue" onclick="addManualModel()">Add Model</button>
-                        </div>`;
-
-                        // Model list
+            // Table of models
             html += '<div class="models">';
             html += `<div class="model-header">
                 <div class="col-check"></div>
                 <div class="col-model sortable" onclick="sortRows('model')" title="Sort by name">Model ↕</div>
-                            <div class="col-context sortable" onclick="sortRows('context')" title="Sort by context window">Context ↕</div>
-                            <div class="col-response sortable" onclick="sortRows('response')" title="Sort by status">Response ↕</div>
-                            <div class="col-time sortable" onclick="sortRows('time')" title="Sort by time">Time ↕</div>
-                        </div>`;
-                        models.forEach((m, idx) => {
-                            const metaHtml = metaBitsHtml(m.meta, m.id, false);
-                            const contextHtml = m.meta && m.meta.context ? `<div class="model-context">${esc(m.meta.context)}</div>` : '<div class="model-context">—</div>';
-                            html += `<div class="model-row" id="row-${idx}" data-time="" data-status="">
-                                <div class="col-check"><input type="checkbox" class="model-check" data-idx="${idx}" onchange="saveChecked()"></div>
-                                <div class="col-model"><span class="model-name" onclick="selectModel(${idx})">${esc(m.id)}</span><button class="copy-btn" data-model="${esc(m.id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaHtml}</div>
-                                <div class="col-context">${contextHtml}</div>
-                                <div class="col-response" id="result-${idx}" onclick="toggleExpand(${idx})" style="cursor:pointer" title="Click to view full response"></div>
-                                <div class="col-time" id="time-${idx}"></div>
-                            </div>`;
-                        });
-                        html += '</div>';
+                <div class="col-context sortable" onclick="sortRows('context')" title="Sort by context window">Context ↕</div>
+                <div class="col-response sortable" onclick="sortRows('response')" title="Sort by status">Response ↕</div>
+                <div class="col-time sortable" onclick="sortRows('time')" title="Sort by time">Time ↕</div>
+            </div>`;
+
+            models.forEach((m, idx) => {
+                const metaHtml = metaBitsHtml(m.meta, m.id, false);
+                const contextHtml = m.meta && m.meta.context ? `<div class="model-context">${esc(m.meta.context)}</div>` : '<div class="model-context">—</div>';
+                html += `<div class="model-row" id="row-${idx}" data-time="" data-status="">
+                    <div class="col-check"><input type="checkbox" class="model-check" data-idx="${idx}" onchange="saveChecked()"></div>
+                    <div class="col-model"><span class="model-name" onclick="selectModel(${idx})">${esc(m.id)}</span><button class="copy-btn" data-model="${esc(m.id)}" title="Copy model ID" onclick="copyModelText(this.dataset.model, this)">⧉</button>${metaHtml}</div>
+                    <div class="col-context">${contextHtml}</div>
+                    <div class="col-response" id="result-${idx}" onclick="toggleExpand(${idx})" style="cursor:pointer" title="Click to view full response"></div>
+                    <div class="col-time" id="time-${idx}"></div>
+                </div>`;
+            });
+            html += '</div>';
 
             resultDiv.innerHTML = html;
 
@@ -1405,6 +1580,9 @@
                 if (pendingSettings.prompt) document.getElementById('batch-prompt').value = pendingSettings.prompt;
                 if (pendingSettings.max_tokens) document.getElementById('batch-max-tokens').value = pendingSettings.max_tokens;
                 if (pendingSettings.temperature != null) document.getElementById('batch-temperature').value = pendingSettings.temperature;
+                if (pendingSettings.top_p != null) document.getElementById('batch-top-p').value = pendingSettings.top_p;
+                if (pendingSettings.frequency_penalty != null) document.getElementById('batch-frequency-penalty').value = pendingSettings.frequency_penalty;
+                if (pendingSettings.presence_penalty != null) document.getElementById('batch-presence-penalty').value = pendingSettings.presence_penalty;
                 if (pendingSettings.system != null) document.getElementById('batch-system').value = pendingSettings.system;
                 if (pendingSettings.stream) document.getElementById('batch-stream').checked = true;
                 if (pendingSettings.advanced) document.getElementById('advanced-row').classList.add('open');
@@ -1418,12 +1596,6 @@
             updateExportButtons();
             updateRetryButton();
             renderBatchSummary();
-            setTimeout(() => {
-                const rect = resultDiv.getBoundingClientRect();
-                if (rect.top > window.innerHeight * 0.7) {
-                    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-            }, 50);
         }
 
         function isVisionModel(id) {
@@ -1438,7 +1610,7 @@
             meta = meta || {};
             const bits = [];
             if (modelId && isVisionModel(modelId)) {
-                bits.push('<span class="badge-vision" title="Supports image/vision inputs">👁️ Vision</span>');
+                bits.push('<span class="badge-vision" title="Supports image inputs">👁️ Vision</span>');
             }
             if (meta.display_name) bits.push(esc(meta.display_name));
             if (showContext && meta.context) bits.push(esc(meta.context));
@@ -1492,21 +1664,14 @@
             const input = document.getElementById('manual-model-input');
             const modelName = input.value.trim();
             if (!modelName) return;
-
-            // Check if already exists
-            const exists = currentModels.some(m => m.id === modelName);
-            if (exists) {
+            if (currentModels.some(m => m.id === modelName)) {
                 toast(`Model "${modelName}" already in list`, 'warning');
                 return;
             }
-
-            // Add to currentModels
             currentModels.unshift({ id: modelName, meta: { manual: true } });
             input.value = '';
-
-            // Re-render the model list
             renderModelList(currentModels, currentModels.length);
-            toast(`Added custom model: ${modelName}`, 'success');
+            toast(`Added model: ${modelName}`, 'success');
         }
 
         function getSelectedModels() {
@@ -1518,7 +1683,7 @@
             return selected;
         }
 
-        /* ---------- sorting ---------- */
+        /* ---------- Sorting ---------- */
 
         function statusOrder(s) {
             return s === 'success' ? 0 : s === 'error' ? 1 : 2;
@@ -1535,9 +1700,7 @@
                 if (key === 'model') {
                     r = a.querySelector('.model-name').textContent.localeCompare(b.querySelector('.model-name').textContent);
                 } else if (key === 'context') {
-                    const aCtx = parseContext(a.querySelector('.model-context').textContent);
-                    const bCtx = parseContext(b.querySelector('.model-context').textContent);
-                    r = aCtx - bCtx;
+                    r = parseContext(a.querySelector('.model-context').textContent) - parseContext(b.querySelector('.model-context').textContent);
                 } else if (key === 'time') {
                     r = (parseFloat(a.dataset.time) || Infinity) - (parseFloat(b.dataset.time) || Infinity);
                 } else {
@@ -1550,7 +1713,6 @@
         }
 
         function parseContext(text) {
-            // Parse "128K ctx" or "—" to numeric value for sorting
             if (!text || text === '—') return 0;
             const match = text.match(/([\d,]+)\s*[KM]?/);
             if (!match) return 0;
@@ -1560,7 +1722,7 @@
             return num;
         }
 
-        /* ---------- batch testing ---------- */
+        /* ---------- Batch Testing ---------- */
 
         function setBatchUI(running) {
             batchRunning = running;
@@ -1579,9 +1741,7 @@
             }
         }
 
-        function stopBatch() {
-            batchAbort = true;
-        }
+        function stopBatch() { batchAbort = true; }
 
         async function testSelected() {
             const selected = getSelectedModels();
@@ -1646,9 +1806,7 @@
 
             await Promise.all(Array.from({ length: concurrency }, () => worker()));
 
-            progressText.textContent = batchAbort
-                ? `Stopped — ${done} / ${total} tested`
-                : `Done — ${done} / ${total} tested`;
+            progressText.textContent = batchAbort ? `Stopped — ${done} / ${total} tested` : `Done — ${done} / ${total} tested`;
             setBatchUI(false);
             saveResults();
             saveChecked();
@@ -1770,7 +1928,7 @@
                         } else if (ev.type === 'usage') {
                             usage = { ...(usage || {}), ...ev.usage };
                         } else if (ev.type === 'retry') {
-                            toast(`${model}: retrying without ${ev.field} (model rejected it)`, 'info');
+                            toast(`${model}: retrying without ${ev.field}`, 'info');
                         } else if (ev.type === 'error') {
                             errMsg = ev.error || 'Stream error';
                         }
@@ -1782,11 +1940,7 @@
 
             const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
             const status = errMsg ? 'error' : 'success';
-            const result = {
-                model, status,
-                response: errMsg || text,
-                time: elapsed, ttft, usage
-            };
+            const result = { model, status, response: errMsg || text, time: elapsed, ttft, usage };
             record(result);
             showResult(idx, result);
             saveResults();
@@ -1826,12 +1980,6 @@
             timeEl.innerHTML = `${ttft}${r.time}s${tok}`;
             timeEl.className = `col-time ${r.status === 'success' ? 'success' : 'error'}`;
             if (row) { row.dataset.time = r.time; row.dataset.status = r.status; }
-            // Refresh an open expand panel for this row
-            const expand = row && row.nextElementSibling;
-            if (expand && expand.classList.contains('row-expand')) {
-                row.nextElementSibling.remove();
-                toggleExpand(idx);
-            }
             updateRetryButton();
         }
 
@@ -1860,14 +2008,11 @@
             row.after(div);
         }
 
-        /* ---------- batch summary ---------- */
-
         function renderBatchSummary() {
             const el = document.getElementById('batch-summary');
             if (!el) return;
             if (!testResults.length) { el.innerHTML = ''; return; }
             const ok = testResults.filter(r => r.status === 'success');
-            const fail = testResults.filter(r => r.status === 'error');
             const times = ok.map(r => parseFloat(r.time) || 0).filter(Boolean);
             const minT = times.length ? Math.min(...times) : 0;
             const maxT = times.length ? Math.max(...times) : 0;
@@ -1895,8 +2040,6 @@
             const hasFailed = testResults.some(r => r.status === 'error');
             el.style.display = hasFailed ? '' : 'none';
         }
-
-        /* ---------- results persistence ---------- */
 
         function resultsKey() {
             return `model-lister:results:${currentProvider}:${currentBaseUrl || PROVIDER_DEFAULTS[currentProvider] || 'default'}`;
@@ -1929,13 +2072,13 @@
 
         function updateExportButtons() {
             const has = testResults.length > 0;
-            ['btn-export-csv', 'btn-export-json', 'btn-clear-saved'].forEach(id => {
+            ['btn-export-csv', 'btn-export-json', 'btn-export-md', 'btn-clear-saved'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = has ? '' : 'none';
             });
         }
 
-        /* ---------- export ---------- */
+        /* ---------- Exports ---------- */
 
         function exportRows() {
             return [...testResults].sort((a, b) => a.model.localeCompare(b.model));
@@ -1968,6 +2111,27 @@
             downloadFile('model-test.json', JSON.stringify(exportRows(), null, 2), 'application/json');
         }
 
+        function exportMarkdown() {
+            if (testResults.length === 0) { toast('No test results to export.', 'info'); return; }
+            let md = `# AI Model Lister Benchmark Results\n\n`;
+            md += `Generated: ${new Date().toISOString()}\n\n`;
+            md += `| Model | Status | Latency | TTFT | Prompt Tok | Output Tok | Est. Cost |\n`;
+            md += `| :--- | :---: | :---: | :---: | :---: | :---: | :---: |\n`;
+            exportRows().forEach(r => {
+                const u = r.usage || {};
+                const cost = computeCost(r.model, r.usage);
+                const costStr = cost != null ? `$${cost.toFixed(4)}` : '—';
+                const ttftStr = r.ttft != null ? `${Number(r.ttft).toFixed(2)}s` : '—';
+                md += `| \`${r.model}\` | ${r.status === 'success' ? '✅' : '❌'} | ${r.time}s | ${ttftStr} | ${u.prompt || 0} | ${u.completion || 0} | ${costStr} |\n`;
+            });
+            md += `\n---\n\n## Full Outputs\n\n`;
+            exportRows().forEach(r => {
+                md += `### Model: \`${r.model}\`\n\n`;
+                md += `\`\`\`\n${r.response || '(No output)'}\n\`\`\`\n\n`;
+            });
+            downloadFile('model-comparison.md', md, 'text/markdown');
+        }
+
         function downloadFile(name, content, type) {
             const blob = new Blob([content], { type });
             const a = document.createElement('a');
@@ -1977,7 +2141,7 @@
             URL.revokeObjectURL(a.href);
         }
 
-        /* ---------- comparison ---------- */
+        /* ---------- Single Model & Comparison ---------- */
 
         function compareSelected() {
             const selected = getSelectedModels();
@@ -1999,12 +2163,7 @@
             const panel = document.getElementById('compare-panel');
             if (panel) panel.outerHTML = html;
             else resultDiv.insertAdjacentHTML('beforeend', html);
-            setTimeout(() => {
-                document.getElementById('compare-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 50);
         }
-
-        /* ---------- single-model test panel ---------- */
 
         function selectModel(idx) {
             const modelId = currentModels[idx].id;
@@ -2017,25 +2176,18 @@
                     <textarea id="prompt" rows="3" placeholder="Enter a test prompt...">Hi</textarea>
                     <div class="image-chip-container" id="single-image-chip" style="display:none"></div>
                     <div class="prompt-bar" style="margin-top:10px">
-                        <button type="button" class="icon-btn" title="Attach image file (or paste with Ctrl+V)" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
-                        <button type="button" class="icon-btn" title="Attach image by URL" onclick="promptImageUrl()">🔗 URL</button>
-                        <label class="duration-group"><input type="checkbox" id="single-stream"> Stream (TTFT, live)</label>
+                        <button type="button" class="icon-btn" title="Attach image file" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
+                        <button type="button" class="icon-btn" title="Attach image URL" onclick="promptImageUrl()">🔗 URL</button>
+                        <label class="duration-group"><input type="checkbox" id="single-stream"> Stream</label>
                         <button onclick="runTest(${idx})">Send Test</button>
-                        <span style="color:var(--muted);font-size:12px">uses Advanced params above</span>
                     </div>
                     <div id="test-response"></div>
                 </div>
             `;
 
-            if (existingTest) {
-                existingTest.outerHTML = panelHtml;
-            } else {
-                resultDiv.insertAdjacentHTML('beforeend', panelHtml);
-            }
+            if (existingTest) { existingTest.outerHTML = panelHtml; }
+            else { resultDiv.insertAdjacentHTML('beforeend', panelHtml); }
             renderImageChips();
-            setTimeout(() => {
-                document.getElementById('test-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 50);
         }
 
         async function runTest(idx) {
@@ -2095,17 +2247,11 @@
                             try { ev = JSON.parse(payload); } catch (e) { continue; }
                             if (ev.type === 'delta') { text += ev.text; liveEl.textContent = text; }
                             else if (ev.type === 'usage') { usage = { ...(usage || {}), ...ev.usage }; }
-                            else if (ev.type === 'retry') { toast(`${modelId}: retrying without ${ev.field} (model rejected it)`, 'info'); }
                             else if (ev.type === 'error') { errMsg = ev.error; }
                         }
                     }
-                    if (errMsg) {
-                        responseDiv.innerHTML = `<div class="error">${esc(errMsg)}</div>`;
-                    } else {
-                        const cost = computeCost(modelId, usage);
-                        const tok = usage ? `<br><small>${usage.prompt || 0} in / ${usage.completion || 0} out tok${cost != null ? ` · $${cost.toFixed(4)}` : ''}</small>` : '';
-                        responseDiv.innerHTML = `<div class="response"><strong>Response:</strong><br>${esc(text)}${tok}</div>`;
-                    }
+                    if (errMsg) responseDiv.innerHTML = `<div class="error">${esc(errMsg)}</div>`;
+                    else responseDiv.innerHTML = `<div class="response"><strong>Response:</strong><br>${esc(text)}</div>`;
                 } catch (err) {
                     responseDiv.innerHTML = `<div class="error">Network error: ${esc(err.message)}</div>`;
                 }
@@ -2113,47 +2259,319 @@
             }
 
             responseDiv.innerHTML = '<p>Calling model...</p>';
-
             try {
                 const res = await fetch('/test-model', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...baseBody, stream: false })
                 });
-
                 const data = await res.json();
-
                 if (!res.ok) {
                     responseDiv.innerHTML = `<div class="error">${esc(data.error || 'Request failed')}</div>`;
                     return;
                 }
-
-                const usage = data.usage;
-                const cost = computeCost(modelId, usage);
-                const tok = usage ? `<br><small>${usage.prompt || 0} in / ${usage.completion || 0} out tok${cost != null ? ` · $${cost.toFixed(4)}` : ''}</small>` : '';
-                responseDiv.innerHTML = `<div class="response"><strong>Response:</strong><br>${esc(data.response)}${tok}</div>`;
+                responseDiv.innerHTML = `<div class="response"><strong>Response:</strong><br>${esc(data.response)}</div>`;
             } catch (err) {
                 responseDiv.innerHTML = `<div class="error">Network error: ${esc(err.message)}</div>`;
             }
         }
 
-        /* ---------- provider comparison ---------- */
+        /* ---------- Multi-turn Chat Mode ---------- */
+
+        let chatMessages = [];
+
+        async function sendChatMessage() {
+            const inputEl = document.getElementById('chatInput');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            const provider = document.getElementById('chat-provider').value;
+            const model = document.getElementById('chat-model').value.trim();
+            const baseUrl = document.getElementById('chat-base-url').value.trim();
+            const apiKey = document.getElementById('chat-api-key').value.trim() || currentApiKey;
+            const system = (document.getElementById('chat-system')?.value || '').trim();
+
+            if (!model) { toast('Please specify a model ID for Chat.', 'warning'); return; }
+
+            chatMessages.push({ role: 'user', content: text });
+            inputEl.value = '';
+
+            const historyEl = document.getElementById('chatHistory');
+            historyEl.innerHTML += `<div class="chat-msg user">${esc(text)}</div>`;
+            historyEl.scrollTop = historyEl.scrollHeight;
+
+            const tempMsg = document.createElement('div');
+            tempMsg.className = 'chat-msg assistant';
+            tempMsg.textContent = 'Thinking…';
+            historyEl.appendChild(tempMsg);
+            historyEl.scrollTop = historyEl.scrollHeight;
+
+            try {
+                const res = await fetch('/test-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: chatMessages,
+                        provider,
+                        model,
+                        api_key: apiKey,
+                        base_url: baseUrl,
+                        system: system
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Chat request failed');
+                
+                tempMsg.textContent = data.response;
+                chatMessages.push({ role: 'assistant', content: data.response });
+            } catch (e) {
+                tempMsg.textContent = `Error: ${e.message}`;
+            }
+            historyEl.scrollTop = historyEl.scrollHeight;
+        }
+
+        function clearChat() {
+            chatMessages = [];
+            document.getElementById('chatHistory').innerHTML = `<div class="chat-msg assistant">Chat cleared. Ready for your questions.</div>`;
+        }
+
+        /* ---------- A/B Blind Arena ---------- */
+
+        let abMapping = {};
+
+        async function startABTest() {
+            const provA = document.getElementById('ab-provider-a').value;
+            const modA = document.getElementById('ab-model-a').value.trim() || 'gpt-4o';
+            const baseA = document.getElementById('ab-base-url-a').value.trim();
+            const keyA = document.getElementById('ab-api-key-a').value.trim() || currentApiKey;
+
+            const provB = document.getElementById('ab-provider-b').value;
+            const modB = document.getElementById('ab-model-b').value.trim() || 'claude-3-5-sonnet';
+            const baseB = document.getElementById('ab-base-url-b').value.trim();
+            const keyB = document.getElementById('ab-api-key-b').value.trim() || currentApiKey;
+
+            const prompt = document.getElementById('ab-prompt').value.trim();
+            if (!prompt) { toast('Please enter a prompt for A/B testing', 'warning'); return; }
+
+            const isFlipped = Math.random() > 0.5;
+            const candidateA = { provider: provA, model: modA, base_url: baseA, api_key: keyA, label: 'Candidate A' };
+            const candidateB = { provider: provB, model: modB, base_url: baseB, api_key: keyB, label: 'Candidate B' };
+
+            abMapping = {
+                cand1: isFlipped ? candidateB : candidateA,
+                cand2: isFlipped ? candidateA : candidateB
+            };
+
+            const resDiv = document.getElementById('abResults');
+            resDiv.style.display = 'block';
+            document.getElementById('abRevealText').textContent = '';
+            document.getElementById('ab-resp-1').textContent = 'Loading response #1...';
+            document.getElementById('ab-resp-2').textContent = 'Loading response #2...';
+
+            const runSide = async (candidate, targetElId) => {
+                try {
+                    const res = await fetch('/test-model', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            provider: candidate.provider,
+                            model: candidate.model,
+                            prompt,
+                            api_key: candidate.api_key,
+                            base_url: candidate.base_url
+                        })
+                    });
+                    const d = await res.json();
+                    document.getElementById(targetElId).textContent = d.response || d.error || 'No output';
+                } catch (e) {
+                    document.getElementById(targetElId).textContent = `Error: ${e.message}`;
+                }
+            };
+
+            await Promise.all([
+                runSide(abMapping.cand1, 'ab-resp-1'),
+                runSide(abMapping.cand2, 'ab-resp-2')
+            ]);
+        }
+
+        function voteAB(winner) {
+            const chosen = winner === 1 ? abMapping.cand1 : abMapping.cand2;
+            toast(`Voted for Response #${winner}!`, 'success');
+        }
+
+        function revealAB() {
+            if (!abMapping.cand1) return;
+            const info1 = `${abMapping.cand1.provider}: ${abMapping.cand1.model}`;
+            const info2 = `${abMapping.cand2.provider}: ${abMapping.cand2.model}`;
+            document.getElementById('abRevealText').textContent = `Response #1 was [${info1}] | Response #2 was [${info2}]`;
+        }
+
+        /* ---------- Automated Benchmark Suites ---------- */
+
+        async function runSuite() {
+            const provider = document.getElementById('suite-provider').value;
+            const model = document.getElementById('suite-model').value.trim();
+            const baseUrl = document.getElementById('suite-base-url').value.trim();
+            const apiKey = document.getElementById('suite-api-key').value.trim() || currentApiKey;
+            const suite = document.getElementById('suiteSelect').value;
+
+            if (!model) { toast('Please specify a model ID for benchmarks.', 'warning'); return; }
+
+            const resDiv = document.getElementById('suiteResults');
+            resDiv.innerHTML = '<p>⏳ Running benchmark suite questions...</p>';
+
+            try {
+                const res = await fetch('/test-suite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider,
+                        model,
+                        api_key: apiKey,
+                        suite,
+                        base_url: baseUrl
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Benchmark run failed');
+
+                let html = `<h4>Results for ${esc(data.model)} (${esc(data.suite)} suite):</h4>`;
+                data.results.forEach((r, idx) => {
+                    html += `
+                        <div class="provider-card" style="margin-bottom:12px;">
+                            <strong>Q${idx + 1}:</strong> ${esc(r.prompt)}<br>
+                            <div class="response" style="margin-top:8px;">${esc(r.response)}</div>
+                            <small style="color:var(--muted)">Status: ${r.status} · Time: ${r.time}s</small>
+                        </div>
+                    `;
+                });
+                resDiv.innerHTML = html;
+            } catch (e) {
+                resDiv.innerHTML = `<div class="error">Benchmark error: ${esc(e.message)}</div>`;
+            }
+        }
+
+        /* ---------- Ollama Manager ---------- */
+
+        async function refreshOllamaTags() {
+            const host = document.getElementById('ollamaHost').value.trim() || 'http://localhost:11434';
+            const listDiv = document.getElementById('ollamaTagsList');
+            listDiv.innerHTML = 'Fetching local models…';
+
+            try {
+                const res = await fetch('/ollama/tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base_url: host })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to fetch tags');
+
+                const models = data.models || [];
+                if (!models.length) {
+                    listDiv.innerHTML = '<p style="color:var(--muted)">No models currently downloaded on Ollama.</p>';
+                    return;
+                }
+
+                let html = '<table class="compare-table"><thead><tr><th>Model</th><th>Size</th><th>Action</th></tr></thead><tbody>';
+                models.forEach(m => {
+                    const sizeMb = m.size ? (m.size / (1024 * 1024)).toFixed(0) + ' MB' : '—';
+                    html += `
+                        <tr>
+                            <td><code>${esc(m.name || m.model)}</code></td>
+                            <td>${sizeMb}</td>
+                            <td><button class="btn-red" style="padding:4px 8px;font-size:12px;" onclick="deleteOllamaModel('${esc(m.name || m.model)}')">Delete</button></td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table>';
+                listDiv.innerHTML = html;
+            } catch (e) {
+                listDiv.innerHTML = `<div class="error">${esc(e.message)}</div>`;
+            }
+        }
+
+        async function pullOllama() {
+            const host = document.getElementById('ollamaHost').value.trim() || 'http://localhost:11434';
+            const model = document.getElementById('ollamaPullModel').value.trim();
+            if (!model) { toast('Enter a model name to pull', 'warning'); return; }
+
+            toast(`Starting pull for ${model}…`, 'info');
+            try {
+                const res = await fetch('/ollama/pull', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base_url: host, model })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Pull failed');
+                toast(`Successfully pulled ${model}!`, 'success');
+                refreshOllamaTags();
+            } catch (e) {
+                toast(`Pull error: ${e.message}`, 'error');
+            }
+        }
+
+        async function deleteOllamaModel(model) {
+            if (!confirm(`Are you sure you want to delete local model ${model}?`)) return;
+            const host = document.getElementById('ollamaHost').value.trim() || 'http://localhost:11434';
+            try {
+                const res = await fetch('/ollama/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base_url: host, model })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Delete failed');
+                toast(`Deleted ${model}`, 'success');
+                refreshOllamaTags();
+            } catch (e) {
+                toast(`Delete error: ${e.message}`, 'error');
+            }
+        }
+
+        /* ---------- Comparison & UI Helpers ---------- */
 
         function populateCompareSelects() {
             ['a', 'b'].forEach(side => {
                 const sel = document.getElementById(`compare-${side}-provider`);
-                if (!sel) return;
-                sel.innerHTML = Object.entries(PROVIDER_LABELS)
+                if (sel) {
+                    sel.innerHTML = Object.entries(PROVIDER_LABELS)
+                        .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
+                        .join('');
+                }
+                const abSel = document.getElementById(`ab-provider-${side}`);
+                if (abSel) {
+                    abSel.innerHTML = Object.entries(PROVIDER_LABELS)
+                        .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
+                        .join('');
+                }
+            });
+            const chatSel = document.getElementById('chat-provider');
+            if (chatSel) {
+                chatSel.innerHTML = Object.entries(PROVIDER_LABELS)
                     .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
                     .join('');
-            });
+            }
+            const suiteSel = document.getElementById('suite-provider');
+            if (suiteSel) {
+                suiteSel.innerHTML = Object.entries(PROVIDER_LABELS)
+                    .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
+                    .join('');
+            }
+            const envSel = document.getElementById('env-default-provider');
+            if (envSel) {
+                envSel.innerHTML = Object.entries(PROVIDER_LABELS)
+                    .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
+                    .join('');
+            }
         }
 
         function updateComparePlaceholders(side) {
             const provider = document.getElementById(`compare-${side}-provider`).value;
             const def = PROVIDER_DEFAULTS[provider] || '';
             const baseUrlInput = document.getElementById(`compare-${side}-base_url`);
-            baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. https://YOUR-RESOURCE.openai.azure.com/openai/v1)';
+            baseUrlInput.placeholder = def ? def + ' (default)' : '(required — e.g. custom URL)';
             document.getElementById(`compare-${side}-api_key`).placeholder = KEY_PLACEHOLDERS[provider] || 'sk-... (API key)';
         }
 
@@ -2246,17 +2664,12 @@
             html += renderCompareSection('In both providers', cmp.both, cmp.aMap, cmp.bMap);
             html += renderCompareSection(`Only in ${aLabel}`, cmp.onlyA, cmp.aMap, cmp.bMap);
             html += renderCompareSection(`Only in ${bLabel}`, cmp.onlyB, cmp.aMap, cmp.bMap);
-
-            if (!cmp.both.length && !cmp.onlyA.length && !cmp.onlyB.length) {
-                html += '<p>No models returned by either provider.</p>';
-            }
             resultDiv.innerHTML = html;
         }
 
         function filterCompareModels() {
             const q = (document.getElementById('compare-search')?.value || '').trim().toLowerCase();
             const resultDiv = document.getElementById('compare-result');
-            let anyVisible = false;
             resultDiv.querySelectorAll('.compare-section').forEach(section => {
                 let visible = 0;
                 section.querySelectorAll('tbody tr').forEach(row => {
@@ -2266,19 +2679,7 @@
                     if (show) visible++;
                 });
                 section.style.display = visible ? '' : 'none';
-                if (visible) anyVisible = true;
             });
-            let msg = document.getElementById('compare-no-match');
-            if (!anyVisible && q) {
-                if (!msg) {
-                    msg = document.createElement('p');
-                    msg.id = 'compare-no-match';
-                    resultDiv.appendChild(msg);
-                }
-                msg.textContent = `No models match "${q}".`;
-            } else if (msg) {
-                msg.remove();
-            }
         }
 
         async function compareProviders() {
@@ -2293,11 +2694,7 @@
                 return;
             }
 
-            const searchInput = document.getElementById('compare-search');
-            if (searchInput) searchInput.value = '';
-            saveCompareSettings();
             resultDiv.innerHTML = '<p>Loading models from both providers...</p>';
-
             const results = await Promise.allSettled([
                 fetchCompareModels(aCfg),
                 fetchCompareModels(bCfg)
@@ -2306,79 +2703,14 @@
             const aError = results[0].status === 'rejected' ? results[0].reason.message : null;
             const bError = results[1].status === 'rejected' ? results[1].reason.message : null;
             if (aError || bError) {
-                const parts = [];
-                if (aError) parts.push(`Provider A: ${esc(aError)}`);
-                if (bError) parts.push(`Provider B: ${esc(bError)}`);
-                resultDiv.innerHTML = `<div class="error">${parts.join('<br>')}</div>`;
+                resultDiv.innerHTML = `<div class="error">${[aError, bError].filter(Boolean).join('<br>')}</div>`;
                 return;
             }
 
             renderComparison(results[0].value, results[1].value, aCfg, bCfg);
-            filterCompareModels();
         }
 
-        function saveCompareSettings() {
-            try {
-                localStorage.setItem(COMPARE_SETTINGS_KEY, JSON.stringify({
-                    server_default: PROVIDER_DEFAULTS.openai,
-                    a_provider: document.getElementById('compare-a-provider').value,
-                    a_base_url: document.getElementById('compare-a-base_url').value.trim(),
-                    a_timeout: document.getElementById('compare-a-timeout').value,
-                    a_headers: document.getElementById('compare-a-headers').value,
-                    b_provider: document.getElementById('compare-b-provider').value,
-                    b_base_url: document.getElementById('compare-b-base_url').value.trim(),
-                    b_timeout: document.getElementById('compare-b-timeout').value,
-                    b_headers: document.getElementById('compare-b-headers').value
-                }));
-            } catch (e) { /* storage unavailable */ }
-        }
-
-        function loadCompareSettings() {
-            let s;
-            try { s = JSON.parse(localStorage.getItem(COMPARE_SETTINGS_KEY) || 'null'); } catch (e) { return; }
-
-            const defaultA = DEFAULT_PROVIDER;
-            const defaultB = DEFAULT_PROVIDER !== 'openrouter' ? 'openrouter' : 'gemini';
-            document.getElementById('compare-a-provider').value = defaultA;
-            document.getElementById('compare-b-provider').value = defaultB;
-
-            if (s) {
-                if (typeof s.a_provider === 'string' && PROVIDER_LABELS[s.a_provider]) {
-                    document.getElementById('compare-a-provider').value = s.a_provider;
-                }
-                if (typeof s.b_provider === 'string' && PROVIDER_LABELS[s.b_provider]) {
-                    document.getElementById('compare-b-provider').value = s.b_provider;
-                }
-            }
-
-            updateComparePlaceholders('a');
-            updateComparePlaceholders('b');
-
-            const currentServerDefault = PROVIDER_DEFAULTS.openai || '';
-            const setField = (id, providerElId, saved) => {
-                const el = document.getElementById(id);
-                const prov = document.getElementById(providerElId).value;
-                const def = PROVIDER_DEFAULTS[prov] || '';
-                if (s && s.server_default && s.server_default !== currentServerDefault && prov === 'openai') {
-                    el.value = def;
-                } else if (typeof saved === 'string' && saved) {
-                    el.value = saved;
-                } else {
-                    el.value = def;
-                }
-            };
-            setField('compare-a-base_url', 'compare-a-provider', s && s.a_base_url);
-            setField('compare-b-base_url', 'compare-b-provider', s && s.b_base_url);
-            if (s) {
-                if (s.a_timeout) document.getElementById('compare-a-timeout').value = s.a_timeout;
-                if (typeof s.a_headers === 'string') document.getElementById('compare-a-headers').value = s.a_headers;
-                if (s.b_timeout) document.getElementById('compare-b-timeout').value = s.b_timeout;
-                if (typeof s.b_headers === 'string') document.getElementById('compare-b-headers').value = s.b_headers;
-            }
-            saveCompareSettings();
-        }
-
-        /* ---------- self-update ---------- */
+        /* ---------- Self-Update ---------- */
 
         const UPDATE_DISMISS_KEY = 'model-lister:update-dismissed';
 
@@ -2391,9 +2723,6 @@
             try {
                 const res = await fetch('/check-update');
                 const data = await res.json();
-                if (data.error) {
-                    console.warn('[AI Model Lister] Check update:', data.error);
-                }
                 if (!data.configured || !data.has_update) return;
 
                 const remote = cleanVersion(data.remote);
@@ -2402,12 +2731,13 @@
 
                 let dismissed = null;
                 try { dismissed = JSON.parse(localStorage.getItem(UPDATE_DISMISS_KEY) || 'null'); } catch (e) {}
-                if (dismissed && cleanVersion(dismissed.remote) === remote) return; // user dismissed this version
+                if (dismissed && cleanVersion(dismissed.remote) === remote) return;
+
                 document.getElementById('update-msg').innerHTML =
                     `New version available: <code>v${esc(remote)}</code> (current <code>v${esc(current)}</code>)` +
                     `<small>From github.com/${esc(data.repo)}/${esc(data.branch)}</small>`;
                 banner.classList.add('show');
-            } catch (e) { /* offline / not configured — ignore */ }
+            } catch (e) {}
         }
 
         function dismissUpdate() {
@@ -2423,7 +2753,6 @@
             const msg = document.getElementById('update-msg');
             btn.disabled = true;
             msg.innerHTML = 'Updating… <small>pulling latest changes.</small>';
-            let expectedVersion = null;
             try {
                 const res = await fetch('/update', { method: 'POST' });
                 const data = await res.json();
@@ -2432,57 +2761,29 @@
                     msg.innerHTML = `Update not applied. <small>${esc(data.message || '')}</small>`;
                     return;
                 }
-                expectedVersion = data.version;
-                if (data.no_restart) {
-                    // No restart mode - just reload the page
-                    toast(`Update applied to v${data.version || ''}. Reloading…`, 'success');
-                    setTimeout(() => location.reload(), 600);
-                    return;
-                }
+                toast(`Updated to v${data.version || ''}. Reloading…`, 'success');
+                setTimeout(() => location.reload(), 1500);
             } catch (e) {
-                // server is restarting — expected
+                toast('Reloading...', 'info');
+                setTimeout(() => location.reload(), 2000);
             }
-            pollForRestart(expectedVersion);
         }
 
-        async function pollForRestart(expectedVersion) {
-            const msg = document.getElementById('update-msg');
-            const deadline = Date.now() + 35000;
-            // Wait 2.5 seconds before first poll so server has time to initiate restart
-            await sleep(2500);
-            while (Date.now() < deadline) {
-                try {
-                    const res = await fetch('/health', { cache: 'no-store' });
-                    if (res.ok) {
-                        const data = await res.json();
-                        // Only declare success if the restarted server is on the new version (or if expectedVersion wasn't provided)
-                        if (!expectedVersion || cleanVersion(data.version) === cleanVersion(expectedVersion)) {
-                            toast(`Restarted on v${data.version}. Reloading…`, 'success');
-                            setTimeout(() => location.reload(), 600);
-                            return;
-                        }
-                    }
-                } catch (e) { /* still down — keep polling */ }
-                await sleep(1500);
-            }
-            msg.innerHTML = 'Restart is taking longer than expected. <small>Refresh the page manually.</small>';
-        }
-
-        /* ---------- side panel navigation ---------- */
+        /* ---------- Navigation & Init ---------- */
 
         const SIDEBAR_KEY = 'model-lister:sidebar';
 
         function toggleSidebar() {
             const layout = document.querySelector('.layout');
             const collapsed = layout.classList.toggle('sidebar-collapsed');
-            try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+            try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch (e) {}
         }
 
         function loadSidebar() {
             try {
                 if (localStorage.getItem(SIDEBAR_KEY) === '1')
                     document.querySelector('.layout').classList.add('sidebar-collapsed');
-            } catch (e) { /* keep default visible */ }
+            } catch (e) {}
         }
 
         const VIEW_KEY = 'model-lister:view';
@@ -2492,16 +2793,14 @@
                 v.classList.toggle('active', v.id === `view-${view}`));
             document.querySelectorAll('.side-item').forEach(b =>
                 b.classList.toggle('active', b.dataset.view === view));
-            try { localStorage.setItem(VIEW_KEY, view); } catch (e) { /* storage unavailable */ }
+            try { localStorage.setItem(VIEW_KEY, view); } catch (e) {}
         }
 
         function loadView() {
             let view = 'lister';
-            try { view = localStorage.getItem(VIEW_KEY) || 'lister'; } catch (e) { /* keep default */ }
+            try { view = localStorage.getItem(VIEW_KEY) || 'lister'; } catch (e) {}
             switchView(view);
         }
-
-        /* ---------- server environment (.env) settings ---------- */
 
         async function loadEnvSettings() {
             try {
@@ -2512,7 +2811,7 @@
                 const provEl = document.getElementById('env-default-provider');
                 if (baseUrlEl) baseUrlEl.value = data.default_base_url || '';
                 if (provEl && data.default_provider) provEl.value = data.default_provider;
-            } catch (e) { /* ignore network error */ }
+            } catch (e) {}
         }
 
         async function saveEnvSettings() {
@@ -2535,38 +2834,24 @@
                 toast('Settings saved to .env!', 'success');
                 status.textContent = 'Saved!';
                 setTimeout(() => { status.textContent = ''; }, 3000);
-
-                // Update in-memory defaults dynamically
-                PROVIDER_DEFAULTS.openai = data.default_base_url || 'https://api.openai.com/v1';
-                if (document.getElementById('provider').value === 'openai') {
-                    document.getElementById('base_url').value = PROVIDER_DEFAULTS.openai;
-                }
-                updatePlaceholders();
-                saveSettings();
             } catch (e) {
-                toast(`Error saving settings: ${e.message}`, 'error');
-                status.textContent = 'Failed to save.';
+                toast(`Error: ${e.message}`, 'error');
+                status.textContent = 'Failed.';
             } finally {
                 btn.disabled = false;
             }
         }
 
-        /* ---------- keyboard shortcuts ---------- */
-
         document.addEventListener('keydown', function (e) {
             if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
             const tag = document.activeElement?.tagName;
             if (tag === 'TEXTAREA' || tag === 'INPUT') {
-                // Single test panel textarea → run that test
                 if (document.getElementById('test-panel')?.contains(document.activeElement)) {
                     e.preventDefault();
-                    const idx = parseInt(document.querySelector('#test-panel button')?.onclick?.toString().match(/runTest\((\d+)\)/)?.[1]);
-                    // Fallback: find the runTest button
                     const btn = document.querySelector('#test-panel button[onclick^="runTest"]');
                     if (btn) btn.click();
                     return;
                 }
-                // Batch prompt bar → test selected
                 if (document.getElementById('batch-prompt')?.contains?.(document.activeElement) || document.activeElement?.id === 'batch-prompt') {
                     e.preventDefault();
                     if (!batchRunning) testSelected();
@@ -2574,7 +2859,7 @@
             }
         });
 
-        // Initialize UI
+        // Init
         loadTheme();
         loadSettings();
         updatePlaceholders();
@@ -2585,7 +2870,10 @@
         });
 
         populateCompareSelects();
-        loadCompareSettings();
+        updateChatProviderUI();
+        updateSuiteProviderUI();
+        updateABProviderUI('a');
+        updateABProviderUI('b');
         loadView();
         loadSidebar();
         checkUpdate();

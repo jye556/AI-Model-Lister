@@ -30,12 +30,16 @@ List models per provider, run batch tests with live token streaming, measure lat
 ### Listing & testing
 - Live model listing per provider, with metadata (display name, context window, owner, creation date)
 - Single-model and **batch** testing — sequential or concurrent, with a configurable delay between calls
+- **Multi-Turn Interactive Chat** — test multi-turn conversations with model selection, custom Base URL, and system prompts
+- **A/B Blind Arena Evaluation** — side-by-side randomized blind model comparison with custom Base URLs, provider configs, and instant identity reveal
+- **Automated Benchmark Suites** — evaluate models against standardized prompt suites (Coding, Logic & Reasoning, Creative Writing, Safety & Alignment)
+- **Local Ollama Model Manager** — inspect locally installed Ollama models, download/pull new models, or delete unused tags directly from the UI
 - **Multimodal / Vision testing** — attach images via file picker, image URL, or `Ctrl+V` clipboard paste directly into prompts; client-side downscaling prevents payload limits
 - **Native Vision adapters** — automatic payload translation for Google Gemini (`inlineData`), Anthropic Claude (`image` content blocks), xAI Grok, and OpenAI-compatible (`image_url`) endpoints
 - **Vision badges** — `👁️ Vision` badge automatically tags recognized multimodal models in listings and comparisons
 - **Live streaming** — tokens render in the UI as they arrive, with time-to-first-token (TTFT) measured
 - **Token usage** (prompt / completion) captured per test, with **estimated cost** from an editable per-model pricing table
-- **Configurable generation parameters** — system prompt, max tokens, temperature
+- **Expanded generation parameters** — system prompt, max tokens, temperature, `top_p`, `frequency_penalty`, and `presence_penalty`
 - **Temperature auto-fallback** — reasoning models (e.g. `o1`/`o3`/`o4`) that reject non-`1` temperatures are automatically retried without the field
 - **Retry Failed** button to re-run just the errored models
 - Click any row to **expand** the full response, tokens, TTFT, and cost
@@ -44,7 +48,7 @@ List models per provider, run batch tests with live token streaming, measure lat
 ### Comparison & export
 - Search/filter, sortable results, side-by-side comparison of selected models
 - **Two-provider availability comparison** — shared, only-A, only-B by exact model ID
-- **CSV / JSON export** of test results (includes token counts and cost)
+- **Markdown / CSV / JSON export** of test results (includes benchmark tables, token counts, and cost)
 
 ### UX
 - Light/dark theme toggle, toast notifications, `Ctrl+Enter` to run a test
@@ -144,6 +148,11 @@ Notes:
 | `POST` | `/list-models` | List models for a provider |
 | `POST` | `/test-model` | Run one model test (returns response + TTFT + usage as JSON) |
 | `POST` | `/test-model-stream` | Live-stream a model test as SSE (`ttft` / `delta` / `usage` / `retry` / `done`) |
+| `POST` | `/test-chat` | Multi-turn conversation chat testing across providers |
+| `POST` | `/test-suite` | Run evaluation prompt suites (Coding, Logic, Creative, Safety) |
+| `GET` / `POST` | `/ollama/tags` | List local installed Ollama model tags |
+| `POST` | `/ollama/pull` | Pull and download new model to Ollama |
+| `DELETE` / `POST` | `/ollama/delete` | Delete model from local Ollama instance |
 | `GET` | `/check-update` | Compare local version against GitHub |
 | `POST` | `/update` | Pull latest and restart (or return Docker guidance) |
 | `GET` | `/health` | `{status, version}` |
