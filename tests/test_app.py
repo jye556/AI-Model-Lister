@@ -521,6 +521,7 @@ class UpdateTests(unittest.TestCase):
         body = resp.get_json()
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(body['updated'])
+        self.assertIn('version', body)
         self.assertIn('Reloading', body['message'])
         mock_update.assert_called_once_with(app_module.APP_DIR)
 
@@ -563,8 +564,10 @@ class UpdateTests(unittest.TestCase):
             with mock.patch.object(app_module.requests, 'get', return_value=fake):
                 app_module._update_from_archive(temp_dir)
 
-            # version.txt should be skipped (like .env)
-            self.assertFalse(os.path.exists(os.path.join(temp_dir, 'version.txt')))
+            # version.txt should be updated, while .env is protected
+            self.assertTrue(os.path.exists(os.path.join(temp_dir, 'version.txt')))
+            with open(os.path.join(temp_dir, 'version.txt'), 'r') as f:
+                self.assertEqual(f.read().strip(), "3.3")
             with open(os.path.join(temp_dir, 'app.py'), 'r') as f:
                 self.assertEqual(f.read().strip(), "# new code")
             self.assertFalse(os.path.exists(os.path.join(temp_dir, '.env')))
