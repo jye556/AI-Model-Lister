@@ -652,6 +652,7 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(app_module._parse_version_tuple(''), ())
         self.assertGreater(app_module._parse_version_tuple('3.5.10'), app_module._parse_version_tuple('3.5.9'))
         self.assertGreater(app_module._parse_version_tuple('3.9.0'), app_module._parse_version_tuple('3.5.9'))
+        self.assertGreater(app_module._parse_version_tuple('3.10.0'), app_module._parse_version_tuple('3.9.0'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
@@ -990,6 +991,115 @@ class NewFeaturesTests(unittest.TestCase):
         self.assertTrue(body['ok'])
         self.assertIn('latency_ms', body)
         self.assertEqual(body['provider'], 'openai')
+
+    def test_system_resources(self):
+        resp = self.client.get('/api/system-resources')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('cpu_cores', body)
+        self.assertIn('total_ram_gb', body)
+        self.assertIn('available_ram_gb', body)
+        self.assertIn('gpu_available', body)
+
+    def test_generate_cascade_code(self):
+        resp = self.client.post('/api/generate-cascade-code', json={
+            'tiers': [
+                {'provider': 'deepseek', 'model': 'deepseek-chat', 'base_url': 'https://api.deepseek.com/v1', 'api_key_env': 'DEEPSEEK_API_KEY'},
+                {'provider': 'openai', 'model': 'gpt-4o-mini', 'base_url': 'https://api.openai.com/v1', 'api_key_env': 'OPENAI_API_KEY'}
+            ],
+            'language': 'python'
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('call_llm_with_cascade', body['code'])
+        self.assertEqual(body['tier_count'], 2)
+
+        resp_ts = self.client.post('/api/generate-cascade-code', json={
+            'tiers': [{'provider': 'openai', 'model': 'gpt-4o', 'base_url': '', 'api_key_env': 'OPENAI_API_KEY'}],
+            'language': 'typescript'
+        })
+        self.assertEqual(resp_ts.status_code, 200)
+        self.assertIn('callLLMWithCascade', resp_ts.get_json()['code'])
+
+    def test_export_cicd(self):
+        resp = self.client.post('/api/export-cicd', json={
+            'suite_name': 'Code Quality Suite',
+            'provider': 'openai',
+            'model': 'gpt-4o-mini',
+            'cases': [{'prompt': 'Say hello', 'assertion_type': 'contains', 'assertion_value': 'hello'}]
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('pytest_script', body)
+        self.assertIn('github_workflow', body)
+        self.assertIn('test_benchmark_case', body['pytest_script'])
+        self.assertIn('runs-on: ubuntu-latest', body['github_workflow'])
+
+    def test_auto_tournament(self):
+        resp = self.client.post('/api/auto-tournament', json={
+            'models': [{'model': 'gpt-4o', 'provider': 'openai'}, {'model': 'claude-3-5-sonnet', 'provider': 'anthropic'}],
+            'prompts': ['Write quicksort algorithm in Python']
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('standings', body)
+        self.assertIn('matches', body)
+        self.assertEqual(len(body['matches']), 1)
+        self.assertIn('champion', body)
+
+    def test_synthesize_suite(self):
+        resp = self.client.post('/api/synthesize-suite', json={'topic': 'PostgreSQL Index Optimization', 'count': 4})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['count'], 4)
+        self.assertEqual(len(body['cases']), 4)
+        self.assertIn('SQL Index Optimization', body['cases'][0]['name'])
+
+    def test_trim_prompt(self):
+        resp = self.client.post('/api/trim-prompt', json={'prompt': 'Could you please kindly assist me in writing Python code in order to reverse a string?'})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('trimmed_prompt', body)
+        self.assertGreater(body['orig_tokens'], body['trimmed_tokens'])
+        self.assertGreater(body['savings_pct'], 10.0)
+
+    def test_ollama_ps(self):
+        resp = self.client.get('/api/ollama/ps')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertIn('models', body)
+
+    def test_ollama_unload(self):
+        resp = self.client.post('/api/ollama/unload', json={'model': 'llama3.1'})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertEqual(body['model'], 'llama3.1')
+
+    def test_ollama_create_modelfile(self):
+        resp = self.client.post('/api/ollama/create', json={
+            'name': 'coder-pro',
+            'from_model': 'llama3.1',
+            'system_prompt': 'You are a coder',
+            'temperature': 0.2
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertIn('FROM llama3.1', body['modelfile'])
+
+    def test_batch_arena(self):
+        resp = self.client.post('/api/batch-arena', json={
+            'model_a': 'gpt-4o',
+            'model_b': 'claude-3-5-sonnet',
+            'prompts': ['Prompt 1', 'Prompt 2']
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['total_battles'], 2)
+        self.assertIn('overall_winner', body)
+        self.assertIn('battles', body)
 
 
 if __name__ == '__main__':
