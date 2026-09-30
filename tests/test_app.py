@@ -653,6 +653,7 @@ class VersionTests(unittest.TestCase):
         self.assertGreater(app_module._parse_version_tuple('3.5.10'), app_module._parse_version_tuple('3.5.9'))
         self.assertGreater(app_module._parse_version_tuple('3.9.0'), app_module._parse_version_tuple('3.5.9'))
         self.assertGreater(app_module._parse_version_tuple('3.10.0'), app_module._parse_version_tuple('3.9.0'))
+        self.assertGreater(app_module._parse_version_tuple('3.11.0'), app_module._parse_version_tuple('3.10.0'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
