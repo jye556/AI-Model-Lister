@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sys
@@ -64,6 +65,8 @@ class HelperTests(unittest.TestCase):
     def test_get_base_url_provider_default(self):
         self.assertEqual(get_base_url('gemini', ''),
                          'https://generativelanguage.googleapis.com/v1beta')
+        self.assertEqual(get_base_url('azure', ''),
+                         'https://models.inference.ai.azure.com')
         with mock.patch('app.get_default_base_url', return_value='https://api.openai.com/v1'):
             self.assertEqual(get_base_url('openai', ''),
                              'https://api.openai.com/v1')
@@ -654,6 +657,7 @@ class VersionTests(unittest.TestCase):
         self.assertGreater(app_module._parse_version_tuple('3.9.0'), app_module._parse_version_tuple('3.5.9'))
         self.assertGreater(app_module._parse_version_tuple('3.10.0'), app_module._parse_version_tuple('3.9.0'))
         self.assertGreater(app_module._parse_version_tuple('3.11.0'), app_module._parse_version_tuple('3.10.0'))
+        self.assertGreater(app_module._parse_version_tuple('3.12.0'), app_module._parse_version_tuple('3.11.0'))
 
     def test_check_update_with_utf16_remote(self):
         with app.test_client() as client:
@@ -1049,11 +1053,20 @@ class NewFeaturesTests(unittest.TestCase):
         self.assertIn('champion', body)
 
     def test_synthesize_suite(self):
-        resp = self.client.post('/api/synthesize-suite', json={'topic': 'PostgreSQL Index Optimization', 'count': 4})
+        resp = self.client.post('/api/synthesize-suite', json={
+            'topic': 'PostgreSQL Index Optimization',
+            'count': 4,
+            'provider': 'anthropic',
+            'model': 'claude-3-5-sonnet',
+            'base_url': 'https://api.anthropic.com/v1',
+            'api_key': 'sk-ant-test'
+        })
         self.assertEqual(resp.status_code, 200)
         body = resp.get_json()
         self.assertEqual(body['count'], 4)
         self.assertEqual(len(body['cases']), 4)
+        self.assertEqual(body['provider'], 'anthropic')
+        self.assertEqual(body['model'], 'claude-3-5-sonnet')
         self.assertIn('SQL Index Optimization', body['cases'][0]['name'])
 
     def test_trim_prompt(self):
@@ -1094,13 +1107,318 @@ class NewFeaturesTests(unittest.TestCase):
         resp = self.client.post('/api/batch-arena', json={
             'model_a': 'gpt-4o',
             'model_b': 'claude-3-5-sonnet',
+            'provider_a': 'openai',
+            'provider_b': 'claude',
+            'base_url_a': 'https://api.openai.com/v1',
+            'base_url_b': 'https://api.anthropic.com/v1',
+            'api_key_a': 'sk-test-a',
+            'api_key_b': 'sk-test-b',
             'prompts': ['Prompt 1', 'Prompt 2']
         })
         self.assertEqual(resp.status_code, 200)
         body = resp.get_json()
         self.assertEqual(body['total_battles'], 2)
+        self.assertEqual(body['provider_a'], 'openai')
+        self.assertEqual(body['provider_b'], 'claude')
+        self.assertEqual(body['base_url_a'], 'https://api.openai.com/v1')
+        self.assertEqual(body['base_url_b'], 'https://api.anthropic.com/v1')
         self.assertIn('overall_winner', body)
         self.assertIn('battles', body)
+
+    def test_proxy_v1_models(self):
+        resp = self.client.get('/v1/models')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['object'], 'list')
+        self.assertTrue(len(body['data']) > 0)
+        self.assertEqual(body['data'][0]['object'], 'model')
+
+    def test_proxy_v1_chat_completions(self):
+        fake_response = mock.MagicMock()
+        fake_response.ok = True
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            'choices': [{'message': {'content': 'Hello from proxy'}}],
+            'usage': {'prompt_tokens': 5, 'completion_tokens': 4}
+        }
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_response):
+            resp = self.client.post('/v1/chat/completions', json={
+                'model': 'gpt-4o',
+                'messages': [{'role': 'user', 'content': 'Hi'}],
+                'cache': True
+            })
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertEqual(body['object'], 'chat.completion')
+            self.assertEqual(body['choices'][0]['message']['content'], 'Hello from proxy')
+
+    def test_proxy_traffic_and_clear(self):
+        resp = self.client.get('/api/proxy/traffic')
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertIn('logs', body)
+        self.assertIn('stats', body)
+        
+        clear_resp = self.client.post('/api/proxy/clear-cache')
+        self.assertEqual(clear_resp.status_code, 200)
+
+    def test_battle_chat(self):
+        fake_response = mock.MagicMock()
+        fake_response.ok = True
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            'choices': [{'message': {'content': 'Battle response'}}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 20}
+        }
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_response):
+            resp = self.client.post('/api/battle-chat', json={
+                'models': [
+                    {'provider': 'openai', 'model': 'gpt-4o'},
+                    {'provider': 'openai', 'model': 'gpt-4o-mini'}
+                ],
+                'prompt': 'Write a haiku'
+            })
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertEqual(len(body['results']), 2)
+            self.assertEqual(body['results'][0]['content'], 'Battle response')
+
+    def test_test_tool_calls(self):
+        fake_response = mock.MagicMock()
+        fake_response.ok = True
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            'choices': [{
+                'message': {
+                    'content': None,
+                    'tool_calls': [{
+                        'id': 'call_123',
+                        'type': 'function',
+                        'function': {
+                            'name': 'get_weather',
+                            'arguments': json.dumps({'location': 'Tokyo', 'unit': 'celsius'})
+                        }
+                    }]
+                }
+            }]
+        }
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_response):
+            resp = self.client.post('/api/test-tool-calls', json={
+                'provider': 'openai',
+                'model': 'gpt-4o',
+                'messages': [{'role': 'user', 'content': 'Weather in Tokyo'}]
+            })
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertTrue(body['ok'])
+            self.assertTrue(body['has_tool_call'])
+            self.assertTrue(body['all_valid'])
+            self.assertEqual(body['tool_calls'][0]['name'], 'get_weather')
+
+    def test_redteam_scan(self):
+        fake_response = mock.MagicMock()
+        fake_response.ok = True
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            'choices': [{'message': {'content': "I cannot fulfill this request as it violates safety guidelines."}}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 10}
+        }
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_response):
+            resp = self.client.post('/api/redteam-scan', json={
+                'provider': 'openai',
+                'model': 'gpt-4o',
+                'probe_ids': ['system_leak_1', 'jailbreak_dan']
+            })
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertEqual(body['total_probes'], 2)
+            self.assertEqual(body['mitigated'], 2)
+            self.assertEqual(body['grade'], 'A+')
+
+    def test_needle_in_haystack(self):
+        fake_response = mock.MagicMock()
+        fake_response.ok = True
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            'choices': [{'message': {'content': "The secret key is NEPTUNE-CIPHER-9821."}}],
+            'usage': {'prompt_tokens': 500, 'completion_tokens': 15}
+        }
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_response):
+            resp = self.client.post('/api/needle-in-haystack', json={
+                'provider': 'openai',
+                'model': 'gpt-4o',
+                'context_size_tokens': 200,
+                'depth_percent': 50
+            })
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertTrue(body['ok'])
+            self.assertTrue(body['found'])
+            self.assertEqual(body['depth_percent'], 50)
+
+    def test_stress_test(self):
+        fake_response = mock.MagicMock()
+        fake_response.ok = True
+        fake_response.status_code = 200
+        fake_response.json.return_value = {
+            'choices': [{'message': {'content': "Hi there!"}}],
+            'usage': {'prompt_tokens': 5, 'completion_tokens': 5}
+        }
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_response):
+            resp = self.client.post('/api/stress-test', json={
+                'provider': 'openai',
+                'model': 'gpt-4o-mini',
+                'concurrency': 2,
+                'total_requests': 4
+            })
+            self.assertEqual(resp.status_code, 200)
+            body = resp.get_json()
+            self.assertEqual(body['total_requests'], 4)
+            self.assertEqual(body['successful'], 4)
+            self.assertIn('effective_rpm', body)
+
+    def test_generate_dossier(self):
+        resp = self.client.post('/api/generate-dossier', json={
+            'title': 'Test Report',
+            'summary': 'Test Summary'
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertIn('<!DOCTYPE html>', body['html'])
+        self.assertIn('Test Report', body['html'])
+
+    def test_webhook_config_and_test(self):
+        get_resp = self.client.get('/api/webhook-config')
+        self.assertEqual(get_resp.status_code, 200)
+
+        post_resp = self.client.post('/api/webhook-config', json={
+            'url': 'https://example.com/webhook',
+            'min_pass_rate': 85.0,
+            'enabled': True
+        })
+        self.assertEqual(post_resp.status_code, 200)
+        self.assertEqual(post_resp.get_json()['config']['min_pass_rate'], 85.0)
+
+        fake_resp = mock.MagicMock()
+        fake_resp.ok = True
+        fake_resp.status_code = 200
+        fake_resp.text = 'ok'
+        with mock.patch.object(app_module.requests, 'post', return_value=fake_resp):
+            test_resp = self.client.post('/api/test-webhook', json={
+                'url': 'https://discord.com/api/webhooks/test',
+                'message': 'Test message'
+            })
+            self.assertEqual(test_resp.status_code, 200)
+            self.assertTrue(test_resp.get_json()['ok'])
+
+    def test_trigger_monitored_benchmark(self):
+        resp = self.client.post('/api/trigger-monitored-benchmark', json={
+            'suite': 'coding',
+            'model': 'gpt-4o'
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertEqual(body['suite'], 'coding')
+
+    def test_topic_discussion(self):
+        resp = self.client.post('/api/topic-discussion', json={
+            'topic': 'PostgreSQL vs MongoDB for high-throughput IoT time-series telemetry',
+            'rounds': 2,
+            'provider': 'openai',
+            'base_url': 'https://api.openai.com/v1',
+            'api_key': 'sk-test-key',
+            'model': 'gpt-4o',
+            'participants': [
+                {
+                    'name': 'Dr. Aris (Lead Architect)',
+                    'role': 'Advocate for PostgreSQL',
+                    'provider': 'openai',
+                    'base_url': 'https://api.openai.com/v1',
+                    'api_key': 'sk-test-1',
+                    'model': 'gpt-4o'
+                },
+                {
+                    'name': 'Elena (Distributed Specialist)',
+                    'role': 'Advocate for MongoDB',
+                    'provider': 'claude',
+                    'base_url': 'https://api.anthropic.com/v1',
+                    'api_key': 'sk-test-2',
+                    'model': 'claude-3-5-sonnet'
+                }
+            ],
+            'moderator': {
+                'name': 'Chief Arbiter',
+                'provider': 'openai',
+                'base_url': 'https://api.openai.com/v1',
+                'api_key': 'sk-test-mod',
+                'model': 'gpt-4o'
+            }
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertEqual(body['rounds'], 2)
+        self.assertEqual(len(body['participants']), 2)
+        self.assertEqual(len(body['turns']), 4)
+        self.assertIn('final_result', body)
+        self.assertIn('verdict', body['final_result'])
+        self.assertIn('consensus_points', body['final_result'])
+        self.assertIn('key_tradeoffs', body['final_result'])
+        self.assertIn('actionable_roadmap', body['final_result'])
+        self.assertGreaterEqual(body['final_result']['confidence_score'], 0)
+
+    def test_topic_discussion_default_topic(self):
+        resp = self.client.post('/api/topic-discussion', json={})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertTrue(body['ok'])
+        self.assertIn('Cross-Platform', body['topic'])
+        self.assertIn('Native', body['topic'])
+        self.assertEqual(len(body['participants']), 3)
+        self.assertEqual(body['participants'][0]['name'], 'Alex (Native Mobile Architect)')
+        self.assertEqual(body['participants'][1]['name'], 'Sam (Cross-Platform Lead Engineer)')
+        self.assertEqual(body['participants'][2]['name'], 'Morgan (Web & PWA Specialist)')
+
+    def test_topic_discussion_streaming(self):
+        resp = self.client.post('/api/topic-discussion', json={
+            'topic': 'Rust vs Go for network proxies',
+            'rounds': 1,
+            'stream': True,
+            'participants': [
+                {
+                    'name': 'Valerie',
+                    'role': 'Rust specialist',
+                    'provider': 'openai',
+                    'base_url': 'https://api.openai.com/v1',
+                    'api_key': 'sk-test-1',
+                    'model': 'gpt-4o'
+                },
+                {
+                    'name': 'Kenji',
+                    'role': 'Go specialist',
+                    'provider': 'openai',
+                    'base_url': 'https://api.openai.com/v1',
+                    'api_key': 'sk-test-2',
+                    'model': 'gpt-4o'
+                }
+            ],
+            'moderator': {
+                'name': 'Chief Arbiter',
+                'provider': 'openai',
+                'base_url': 'https://api.openai.com/v1',
+                'api_key': 'sk-test-mod',
+                'model': 'gpt-4o'
+            }
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('text/event-stream', resp.content_type)
+        data_text = resp.get_data(as_text=True)
+        self.assertIn('data: {"type": "start"', data_text)
+        self.assertIn('"type": "turn"', data_text)
+        self.assertIn('"type": "final_result"', data_text)
+        self.assertIn('data: [DONE]', data_text)
 
 
 if __name__ == '__main__':
