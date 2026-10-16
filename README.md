@@ -34,7 +34,7 @@ List models per provider, run batch tests with live token streaming, measure lat
 - **A/B Blind Arena Evaluation** — side-by-side randomized blind model comparison with custom Base URLs, provider configs, and instant identity reveal
 - **Automated Benchmark Suites** — evaluate models against standardized prompt suites (Coding, Logic & Reasoning, Creative Writing, Safety & Alignment)
 - **Local Ollama Model Manager** — inspect locally installed Ollama models, download/pull new models, or delete unused tags directly from the UI
-- **Multimodal / Vision testing** — attach images via file picker, image URL, or `Ctrl+V` clipboard paste directly into prompts; client-side downscaling prevents payload limits
+- **Multimodal / Vision testing** — attach images via file picker, image URL, or `Ctrl+V` clipboard paste directly into prompts; client-side downscaling prevents payload limits; the default prompt automatically becomes "Describe what is in this image?" while an image is attached and reverts to "Hello!" once it is removed
 - **Native Vision adapters** — automatic payload translation for Google Gemini (`inlineData`), Anthropic Claude (`image` content blocks), xAI Grok, and OpenAI-compatible (`image_url`) endpoints
 - **Vision badges** — `👁️ Vision` badge automatically tags recognized multimodal models in listings and comparisons
 - **Live streaming** — tokens render in the UI as they arrive, with time-to-first-token (TTFT) measured
