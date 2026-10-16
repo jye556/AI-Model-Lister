@@ -2530,6 +2530,10 @@ print(resp.choices[0].message.content)</pre>
         }
 
         let currentAttachedImage = null;
+        // Prompt to use while an image is attached, and the default it reverts to.
+        const IMAGE_DESCRIBE_PROMPT = 'Describe the attached image in detail.';
+        const DEFAULT_PROMPT = 'Say hello in one sentence.';
+        let preImagePrompt = null;
 
         function handleImageFileSelect(input) {
             const file = input.files && input.files[0];
@@ -2579,16 +2583,40 @@ print(resp.choices[0].message.content)</pre>
             setAttachedImage({ dataUrl: trimmed, name, size: 'URL' });
         }
 
+        // Keeps the prompt aligned with the attached image: describe it while one is
+        // attached, and revert to the pre-attachment prompt (or the default) once removed.
+        function syncPromptWithImage() {
+            const promptEl = document.getElementById('batch-prompt');
+            if (!promptEl) return;
+            if (currentAttachedImage) {
+                if (preImagePrompt === null && promptEl.value !== IMAGE_DESCRIBE_PROMPT) {
+                    preImagePrompt = promptEl.value;
+                }
+                if (promptEl.value !== IMAGE_DESCRIBE_PROMPT) {
+                    promptEl.value = IMAGE_DESCRIBE_PROMPT;
+                    updatePromptEstimator();
+                    detectPromptVariables();
+                }
+            } else if (preImagePrompt !== null) {
+                promptEl.value = preImagePrompt.trim() ? preImagePrompt : DEFAULT_PROMPT;
+                preImagePrompt = null;
+                updatePromptEstimator();
+                detectPromptVariables();
+            }
+        }
+
         function setAttachedImage(imgObj) {
             currentAttachedImage = imgObj;
             renderImageChips();
-            toast(`Image attached: ${imgObj.name}`, 'info');
+            syncPromptWithImage();
+            toast(`Image attached: ${imgObj.name} — prompt set to describe the image`, 'info');
         }
 
         function removeAttachedImage() {
             currentAttachedImage = null;
             renderImageChips();
-            toast('Image removed', 'info');
+            syncPromptWithImage();
+            toast('Image removed — prompt reverted to default', 'info');
         }
 
         function renderImageChips() {
@@ -2921,6 +2949,7 @@ print(resp.choices[0].message.content)</pre>
                 pendingSettings = null;
             }
 
+            syncPromptWithImage();
             renderPresetOptions();
             testResults = loadSavedResults();
             applySavedResults();
