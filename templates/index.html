@@ -1067,7 +1067,7 @@
                         </div>
                         <div class="image-chip-container" id="chat-image-chips" style="display:none; padding:4px 12px; background:var(--bg2);"></div>
                         <div class="chat-controls">
-                            <input type="text" id="chatInput" placeholder="Type a message... (Ctrl+Enter or Enter to send, Ctrl+V to paste screenshot)" onkeydown="if(event.key==='Enter'&&!event.shiftKey) sendChatMessage()">
+                            <input type="text" id="chatInput" placeholder="Hello! (Ctrl+Enter or Enter to send, Ctrl+V to paste screenshot)" onkeydown="if(event.key==='Enter'&&!event.shiftKey) sendChatMessage()">
                             <input type="file" id="chat-image-file" accept="image/*" style="display:none" onchange="handleChatImageFile(this)">
                             <button type="button" class="icon-btn" title="Attach Image" onclick="document.getElementById('chat-image-file').click()">🖼️</button>
                             <button class="btn-green" onclick="sendChatMessage()">Send</button>
@@ -2531,6 +2531,32 @@ print(resp.choices[0].message.content)</pre>
 
         let currentAttachedImage = null;
 
+        // Dynamic default prompt: swaps to a vision-oriented prompt while an image is
+        // attached, and back to the plain greeting once the image is removed.
+        const DEFAULT_PROMPT_PLAIN = 'Hello!';
+        const DEFAULT_PROMPT_IMAGE = 'Describe what is in this image?';
+        const DEFAULT_PROMPT_TEXTS = ['', 'Hi', 'Say hello in one sentence.', 'Hello!'];
+
+        function isDefaultPromptText(value) {
+            return DEFAULT_PROMPT_TEXTS.includes((value || '').trim());
+        }
+
+        function refreshDefaultPromptForImage(hasImage) {
+            const target = hasImage ? DEFAULT_PROMPT_IMAGE : DEFAULT_PROMPT_PLAIN;
+            ['batch-prompt', 'prompt'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const untouched = hasImage
+                    ? isDefaultPromptText(el.value)
+                    : el.value.trim() === DEFAULT_PROMPT_IMAGE;
+                if (untouched) {
+                    el.value = target;
+                    updatePromptEstimator();
+                    detectPromptVariables();
+                }
+            });
+        }
+
         function handleImageFileSelect(input) {
             const file = input.files && input.files[0];
             if (!file) return;
@@ -2582,12 +2608,14 @@ print(resp.choices[0].message.content)</pre>
         function setAttachedImage(imgObj) {
             currentAttachedImage = imgObj;
             renderImageChips();
+            refreshDefaultPromptForImage(true);
             toast(`Image attached: ${imgObj.name}`, 'info');
         }
 
         function removeAttachedImage() {
             currentAttachedImage = null;
             renderImageChips();
+            refreshDefaultPromptForImage(false);
             toast('Image removed', 'info');
         }
 
@@ -2768,7 +2796,7 @@ print(resp.choices[0].message.content)</pre>
                     <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="applyGenPreset('reasoning')">🧠 Deep Reasoning</button>
                     <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="applyGenPreset('creative')">🎲 Creative</button>
                 </div>
-                <textarea id="batch-prompt" oninput="updatePromptEstimator(); detectPromptVariables();"  rows="3" placeholder="Enter a prompt to test selected models..." oninput="updatePromptEstimator()">Say hello in one sentence.</textarea>
+                <textarea id="batch-prompt" oninput="updatePromptEstimator(); detectPromptVariables();"  rows="3" placeholder="Enter a prompt to test selected models..." oninput="updatePromptEstimator()">Hello!</textarea>
                 <div class="prompt-estimator" id="prompt-estimator"></div>
                 <div id="prompt-variables-container" style="display:none; margin-top:8px; padding:10px; background:var(--bg); border-radius:6px; border:1px dashed var(--accent);">
                     <div style="font-size:12px; font-weight:600; color:var(--accent); margin-bottom:6px;">⚡ Dynamic Prompt Variables Detected:</div>
@@ -3557,7 +3585,7 @@ print(resp.choices[0].message.content)</pre>
                         <h3>Test model: <code>${esc(modelId)}</code></h3>
                         <button class="icon-btn" style="padding:2px 8px; font-size:12px;" onclick="openSingleCodeModal('${esc(modelId)}')">&lt;/&gt; Code</button>
                     </div>
-                    <textarea id="prompt" rows="3" placeholder="Enter a test prompt...">Hi</textarea>
+                    <textarea id="prompt" rows="3" placeholder="Enter a test prompt...">Hello!</textarea>
                     <div class="image-chip-container" id="single-image-chip" style="display:none"></div>
                     <div class="prompt-bar" style="margin-top:10px">
                         <button type="button" class="icon-btn" title="Attach image file" onclick="document.getElementById('batch-image-file').click()">🖼️ Image</button>
@@ -5739,6 +5767,7 @@ func main() {
         let chatSessions = JSON.parse(localStorage.getItem('model-lister:chat-sessions') || '[]');
         let currentChatSessionId = localStorage.getItem('model-lister:active-chat-session') || 'default';
         let chatAttachedImageBase64 = null;
+        const CHAT_DEFAULT_PLACEHOLDER = 'Hello! (Ctrl+Enter or Enter to send, Ctrl+V to paste screenshot)';
 
         function initChatSessions() {
             if (!chatSessions.length) {
@@ -5884,6 +5913,11 @@ func main() {
                 </div>
             `;
             chipsEl.style.display = 'flex';
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.placeholder = DEFAULT_PROMPT_IMAGE;
+                if (isDefaultPromptText(chatInput.value)) chatInput.value = DEFAULT_PROMPT_IMAGE;
+            }
         }
 
         function removeChatImageChip() {
@@ -5892,6 +5926,11 @@ func main() {
             if (chipsEl) {
                 chipsEl.innerHTML = '';
                 chipsEl.style.display = 'none';
+            }
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.placeholder = CHAT_DEFAULT_PLACEHOLDER;
+                if (chatInput.value.trim() === DEFAULT_PROMPT_IMAGE) chatInput.value = DEFAULT_PROMPT_PLAIN;
             }
         }
 
