@@ -1000,7 +1000,10 @@
                             <button type="button" class="btn-green" onclick="testComparedModels()">⚡ Test Compared Models</button>
                         </div>
                         <div class="prompt-bar" style="margin-top:16px">
-                            <input type="text" id="compare-search" placeholder="Search comparison models..." oninput="filterCompareModels()">
+                            <input type="text" id="compare-search" placeholder="Search comparison models... (keyword search, e.g. 'free')" oninput="filterCompareModels()">
+                            <label class="duration-group" title="Show only free models (name contains 'free')">
+                                <input type="checkbox" id="compare-filter-free" onchange="filterCompareModels()"> 🆓 Free only
+                            </label>
                         </div>
                         <div id="compare-result"></div>
                     </div>
@@ -4916,12 +4919,13 @@ func main() {
 
         function filterCompareModels() {
             const q = (document.getElementById('compare-search')?.value || '').trim().toLowerCase();
+            const freeOnly = document.getElementById('compare-filter-free')?.checked;
             const resultDiv = document.getElementById('compare-result');
             resultDiv.querySelectorAll('.compare-section').forEach(section => {
                 let visible = 0;
                 section.querySelectorAll('tbody tr').forEach(row => {
                     const text = row.querySelector('.col-model')?.textContent.toLowerCase() || '';
-                    const show = !q || text.includes(q);
+                    const show = (!q || text.includes(q)) && (!freeOnly || isFreeModelId(text));
                     row.style.display = show ? '' : 'none';
                     if (show) visible++;
                 });
