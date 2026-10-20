@@ -2897,7 +2897,10 @@ print(resp.choices[0].message.content)</pre>
 
             // Search & Manual Entry
             html += `<div class="prompt-bar">
-                <input type="text" id="model-search" placeholder="Search models..." oninput="filterModels()">
+                <input type="text" id="model-search" placeholder="Search models... (keyword search, e.g. 'free')" oninput="filterModels()">
+                <label class="duration-group" title="Show only free models (name contains 'free')">
+                    <input type="checkbox" id="model-filter-free" onchange="filterModels()"> 🆓 Free only
+                </label>
                 <button class="btn-blue" onclick="selectAllFiltered()">Select All Filtered</button>
             </div>`;
             html += `<div class="prompt-bar">
@@ -3041,19 +3044,25 @@ print(resp.choices[0].message.content)</pre>
             updatePromptEstimator();
         }
 
-        function visibleRows() {
+        function isFreeModelId(modelId) {
+            return modelId.toLowerCase().includes('free');
+        }
+
+        function rowMatchesFilters(row) {
             const query = document.getElementById('model-search').value.trim().toLowerCase();
-            const rows = [...document.querySelectorAll('.model-row')];
-            return query
-                ? rows.filter(r => r.querySelector('.model-name').textContent.toLowerCase().includes(query))
-                : rows;
+            const freeOnly = document.getElementById('model-filter-free')?.checked;
+            const name = row.querySelector('.model-name').textContent.toLowerCase();
+            return (!query || name.includes(query)) && (!freeOnly || isFreeModelId(name));
+        }
+
+        function visibleRows() {
+            return [...document.querySelectorAll('.model-row')].filter(rowMatchesFilters);
         }
 
         function filterModels() {
-            const query = document.getElementById('model-search').value.trim().toLowerCase();
             let visible = 0;
             document.querySelectorAll('.model-row').forEach(r => {
-                const show = !query || r.querySelector('.model-name').textContent.toLowerCase().includes(query);
+                const show = rowMatchesFilters(r);
                 r.style.display = show ? '' : 'none';
                 if (show) visible++;
             });
