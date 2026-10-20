@@ -1155,42 +1155,6 @@ def manage_settings():
     })
 
 
-@app.route('/api/ping-provider', methods=['POST'])
-def ping_provider():
-    """Test connectivity, authentication, and measure latency to a provider endpoint."""
-    data = request.get_json(silent=True) or {}
-    provider = data.get('provider', DEFAULT_PROVIDER)
-    api_key = data.get('api_key', '').strip()
-    custom_base = data.get('base_url', '').strip()
-
-    base_url = get_base_url(provider, custom_base)
-    headers = {**auth_headers(provider, api_key), 'Content-Type': 'application/json'}
-    extra = parse_extra_headers(data.get('headers'))
-    headers.update(extra)
-
-    start = time.monotonic()
-    try:
-        if provider == 'gemini':
-            url = f"{base_url}/models"
-            resp = requests.get(url, headers=headers, timeout=8)
-        elif provider == 'claude':
-            url = f"{base_url}/models"
-            resp = requests.get(url, headers=headers, timeout=8)
-        elif provider == 'ollama':
-            clean_host = base_url.replace('/v1', '')
-            url = f"{clean_host}/api/version"
-            resp = requests.get(url, headers=headers, timeout=5)
-        else:
-            url = f"{base_url}/models"
-            resp = requests.get(url, headers=headers, timeout=8)
-
-        latency_ms = round((time.monotonic() - start) * 1000, 1)
-        if resp.status_code < 400:
-            return jsonify({'ok': True, 'latency_ms': latency_ms, 'status_code': resp.status_code, 'provider': provider})
-        return jsonify({'ok': False, 'latency_ms': latency_ms, 'status_code': resp.status_code, 'error': f"HTTP {resp.status_code}: {resp.text[:120]}"}), 200
-    except Exception as e:
-        latency_ms = round((time.monotonic() - start) * 1000, 1)
-        return jsonify({'ok': False, 'latency_ms': latency_ms, 'error': str(e)}), 200
 
 
 @app.route('/list-models', methods=['POST'])
@@ -2388,15 +2352,6 @@ def batch_arena():
 # ENHANCEMENT SUITE: PROXY GATEWAY, BATTLE ROYALE, TOOLS, RED-TEAM, HAYSTACK, STRESS, DOSSIER, WEBHOOKS
 # ==============================================================================
 
-PROXY_TRAFFIC_LOG = []
-PROXY_CACHE = {}
-MAX_PROXY_LOG = 100
-WEBHOOK_CONFIG = {
-    'url': '',
-    'min_pass_rate': 80.0,
-    'max_latency_ms': 5000.0,
-    'enabled': False
-}
 
 def _resolve_provider_from_model(model_name: str) -> str:
     m = (model_name or '').lower().strip()
@@ -2770,85 +2725,6 @@ def generate_dossier():
 
 # ---------------- 8. Webhook & Automated Regression Monitor ----------------
 
-@app.route('/api/webhook-config', methods=['GET', 'POST'])
-def webhook_config():
-    """Retrieve or save automated alert webhook configuration."""
-    global WEBHOOK_CONFIG
-    if request.method == 'POST':
-        data = request.get_json(silent=True) or {}
-        WEBHOOK_CONFIG['url'] = (data.get('url') or '').strip()
-        WEBHOOK_CONFIG['min_pass_rate'] = float(data.get('min_pass_rate', 80.0))
-        WEBHOOK_CONFIG['max_latency_ms'] = float(data.get('max_latency_ms', 5000.0))
-        WEBHOOK_CONFIG['enabled'] = bool(data.get('enabled'))
-        return jsonify({'ok': True, 'config': WEBHOOK_CONFIG})
-    return jsonify({'ok': True, 'config': WEBHOOK_CONFIG})
-
-
-@app.route('/api/test-webhook', methods=['POST'])
-def test_webhook():
-    """Send test alert to Slack, Discord, or generic Webhook URL."""
-    data = request.get_json(silent=True) or {}
-    url = (data.get('url') or WEBHOOK_CONFIG.get('url') or '').strip()
-    if not url:
-        return jsonify({'ok': False, 'error': 'Webhook URL is required'}), 400
-
-    is_discord = 'discord.com' in url or 'discordapp.com' in url
-    
-    if is_discord:
-        payload = {
-            'username': 'AI Model Lister Watchdog',
-            'embeds': [{
-                'title': '🚨 LLM Model Lister Notification',
-                'description': data.get('message', 'Test notification from AI Model Lister webhook monitor.'),
-                'color': 39129,
-                'fields': [
-                    {'name': 'Status', 'value': '🟢 Healthy', 'inline': True},
-                    {'name': 'Timestamp', 'value': time.strftime('%H:%M:%S UTC'), 'inline': True}
-                ]
-            }]
-        }
-    else:
-        payload = {
-            'text': f"🤖 *AI Model Lister Alert:* {data.get('message', 'Test notification from AI Model Lister webhook monitor.')}\n• *Timestamp:* {time.strftime('%H:%M:%S UTC')}"
-        }
-
-    try:
-        resp = requests.post(url, json=payload, timeout=10)
-        return jsonify({'ok': resp.ok, 'status_code': resp.status_code, 'response': resp.text[:200]})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-
-@app.route('/api/trigger-monitored-benchmark', methods=['POST'])
-def trigger_monitored_benchmark():
-    """Run evaluation suite and dispatch webhook alert if regression detected."""
-    data = request.get_json(silent=True) or {}
-    suite = data.get('suite', 'coding')
-    model = data.get('model', 'gpt-4o')
-    url = WEBHOOK_CONFIG.get('url') or data.get('webhook_url')
-
-    pass_rate = 90.0
-    avg_latency = 420.0
-    regression = pass_rate < WEBHOOK_CONFIG['min_pass_rate'] or avg_latency > WEBHOOK_CONFIG['max_latency_ms']
-    
-    sent_alert = False
-    if regression and url:
-        alert_text = f"Regression Alert for {model} on {suite} suite! Pass rate: {pass_rate}%, Latency: {avg_latency}ms"
-        try:
-            requests.post(url, json={'text': alert_text}, timeout=10)
-            sent_alert = True
-        except Exception:
-            pass
-
-    return jsonify({
-        'ok': True,
-        'suite': suite,
-        'model': model,
-        'pass_rate': pass_rate,
-        'avg_latency_ms': avg_latency,
-        'regression_detected': regression,
-        'alert_dispatched': sent_alert
-    })
 
 
 if __name__ == '__main__':

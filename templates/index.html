@@ -765,7 +765,6 @@
             </div>
             <div class="header-actions">
                 <span class="icon-btn" id="session-cost-ticker" onclick="resetSessionTicker()" title="Session Token Usage (Click to reset)">🪙 <span id="ticker-tokens">0</span> tok <span class="cost-approx">(~$<span id="ticker-cost">0.000</span>)</span></span>
-                <button class="icon-btn" onclick="openCommandPalette()" title="Quick Actions (Ctrl+K)">🔍<span class="btn-text"> Actions</span> <kbd class="kbd-hint">Ctrl+K</kbd></button>
                 <button class="icon-btn" onclick="openTemplatesModal()" title="Prompt Templates Library">📚<span class="btn-text"> Templates</span></button>
                 <button class="icon-btn" onclick="openPricing()" title="Edit per-model pricing">💵<span class="btn-text"> Pricing</span></button>
                 <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
@@ -989,60 +988,8 @@
                             </div>
                         </div>
 
-                        <!-- Provider Key Vault & Connection Tester -->
-                        <div class="provider-card">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <h3 style="margin:0;">🔐 Provider API Key Vault</h3>
-                                <button type="button" class="btn-blue" style="padding:4px 8px; font-size:12px;" onclick="saveKeyVault()">Save Keys</button>
-                            </div>
-                            <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Store API keys securely in <code>.env</code> with 1-click connectivity ping testing.</p>
 
-                            <div id="keyVaultContainer" style="display:flex; flex-direction:column; gap:10px;">
-                                <!-- Rendered dynamically by initKeyVault() -->
-                            </div>
-                        </div>
 
-                        <!-- Configuration Profile Backup & Restore -->
-                        <div class="provider-card">
-                            <h3>💾 Profile Backup &amp; Defaults</h3>
-                            <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Export or import all saved settings, custom prompt templates, and pricing overrides.</p>
-                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                                <button class="btn-blue" onclick="exportProfileBackup()">📤 Export Backup JSON</button>
-                                <input type="file" id="import-profile-file" accept=".json" style="display:none" onchange="importProfileBackup(this)">
-                                <button class="icon-btn" onclick="document.getElementById('import-profile-file').click()">📥 Import Backup JSON</button>
-                            </div>
-                        </div>
-
-                        <!-- Webhook & Automated Regression Monitor -->
-                        <div class="provider-card">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <h3 style="margin:0;">🔔 Automated Regression &amp; Webhook Monitor</h3>
-                                <button type="button" class="btn-blue" style="padding:4px 8px; font-size:12px;" onclick="saveWebhookConfig()">Save Config</button>
-                            </div>
-                            <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">Receive automated Slack or Discord webhook alerts when model latency spikes or evaluation pass rates drop.</p>
-
-                            <div class="form-group">
-                                <label for="webhook-url">Webhook URL (Slack or Discord)</label>
-                                <input type="text" id="webhook-url" placeholder="https://hooks.slack.com/services/... or https://discord.com/api/webhooks/...">
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="webhook-min-pass">Min Pass Rate (%)</label>
-                                    <input type="number" id="webhook-min-pass" value="80" min="10" max="100">
-                                </div>
-                                <div class="form-group">
-                                    <label for="webhook-max-lat">Max Latency (ms)</label>
-                                    <input type="number" id="webhook-max-lat" value="5000" min="100" max="30000">
-                                </div>
-                            </div>
-
-                            <div style="display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap;">
-                                <button type="button" class="icon-btn" onclick="testWebhookNotification()">⚡ Send Test Webhook</button>
-                                <button type="button" class="btn-purple" onclick="runMonitoredBenchmark()">🧪 Run Monitored Benchmark</button>
-                                <span id="webhook-status" style="font-size:12px;"></span>
-                            </div>
-                        </div>
                     </div>
                 </section>
 
@@ -1098,19 +1045,6 @@
         </div>
     </div>
 
-    <!-- Visual Diff Modal -->
-    <div class="modal-overlay" id="diff-modal" onclick="if(event.target===this)closeDiffModal()">
-        <div class="modal large">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h3 style="margin:0;" id="diffModalTitle">🔍 Visual Output Comparison &amp; Diff</h3>
-                <button class="icon-btn" onclick="closeDiffModal()">✕</button>
-            </div>
-            <div class="diff-container" id="diffContainer"></div>
-            <div class="modal-actions">
-                <button class="icon-btn" onclick="closeDiffModal()">Close</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Prompt Template Library Modal -->
     <div class="modal-overlay" id="templates-modal" onclick="if(event.target===this)closeTemplatesModal()">
@@ -1139,48 +1073,6 @@
         </div>
     </div>
 
-    <!-- LLM Judge Modal -->
-    <div class="modal-overlay" id="judge-modal" onclick="if(event.target===this)closeJudgeModal()">
-        <div class="modal large">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h3 style="margin:0;">⚖️ LLM-as-a-Judge Response Evaluator</h3>
-                <button class="icon-btn" onclick="closeJudgeModal()">✕</button>
-            </div>
-            <p style="font-size:13px; color:var(--muted); margin-top:0;">Use an advanced LLM judge to evaluate candidate responses against an objective rubric.</p>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="judge-provider">Judge Provider</label>
-                    <select id="judge-provider" onchange="updateJudgeProviderUI()"></select>
-                </div>
-                <div class="form-group">
-                    <label for="judge-base-url">Judge Base URL (optional)</label>
-                    <input type="text" id="judge-base-url">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="judge-api-key">Judge API Key</label>
-                    <input type="text" id="judge-api-key" placeholder="API Key">
-                </div>
-                <div class="form-group">
-                    <label for="judge-model">Judge Model ID</label>
-                    <input type="text" id="judge-model" placeholder="e.g. gpt-4o, claude-3-5-sonnet, deepseek-chat">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="judge-rubric">Evaluation Rubric</label>
-                <textarea id="judge-rubric" rows="3">Evaluate accuracy, clarity, reasoning depth, and adherence to instructions on a 1-10 scale. Highlight strengths and weaknesses.</textarea>
-            </div>
-
-            <div id="judgeResultsArea" style="margin-top:16px;"></div>
-
-            <div class="modal-actions">
-                <button class="btn-purple" id="btn-start-judge" onclick="startJudgeEvaluation()">⚖️ Run Judge Evaluation</button>
-                <button class="icon-btn" onclick="closeJudgeModal()">Close</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         const DEFAULT_PROVIDER = {{ default_provider | tojson }};
@@ -2110,14 +2002,16 @@
             html += `<div class="toolbar">
                 <label><input type="checkbox" id="select-all" onchange="toggleSelectAll()"> Select All</label>
                 <div class="spacer"></div>
-                <button class="btn-blue" onclick="compareSelected()">Compare Selected</button>
-                <button class="btn-purple" id="btn-diff-selected" onclick="diffSelected()" title="Compare text diff between two models">🔍 Visual Diff</button>
-                <button class="btn-purple" id="btn-judge-selected" onclick="openJudgeModal()" title="Evaluate with LLM Judge">⚖️ LLM Judge</button>
                 <button class="btn-green" id="btn-test-selected" onclick="testSelected()">Test Selected</button>
                 <button class="btn-orange" id="btn-retry-failed" onclick="retryFailed()" style="display:none">Retry Failed</button>
-                <button class="btn-blue" id="btn-export-md" onclick="exportMarkdown()" style="display:none">Export Markdown</button>
-                <button class="btn-blue" id="btn-export-csv" onclick="exportCSV()" style="display:none">Export CSV</button>
-                <button class="btn-blue" id="btn-export-json" onclick="exportJSON()" style="display:none">Export JSON</button>
+                <div style="position:relative; display:inline-block;">
+                    <button class="btn-blue" id="btn-export" onclick="toggleExportMenu(event)" style="display:none">⤓ Export ▾</button>
+                    <div id="export-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; background:var(--card); border:1px solid var(--border); border-radius:6px; min-width:170px; z-index:80; box-shadow:0 6px 20px rgba(0,0,0,0.3); overflow:hidden;">
+                        <button type="button" class="icon-btn" style="width:100%; border:none; border-radius:0; justify-content:flex-start; padding:8px 12px;" onclick="exportMarkdown(); closeExportMenu();">📝 Export Markdown</button>
+                        <button type="button" class="icon-btn" style="width:100%; border:none; border-radius:0; justify-content:flex-start; padding:8px 12px;" onclick="exportCSV(); closeExportMenu();">📊 Export CSV</button>
+                        <button type="button" class="icon-btn" style="width:100%; border:none; border-radius:0; justify-content:flex-start; padding:8px 12px;" onclick="exportJSON(); closeExportMenu();">🗂️ Export JSON</button>
+                    </div>
+                </div>
                 <button class="btn-orange" id="btn-clear-saved" onclick="clearSavedResults()" style="display:none">Clear Saved</button>
                 <button class="btn-red" id="btn-stop" onclick="stopBatch()" style="display:none">Stop</button>
             </div>`;
@@ -2809,11 +2703,28 @@
 
         function updateExportButtons() {
             const has = testResults.length > 0;
-            ['btn-export-csv', 'btn-export-json', 'btn-export-md', 'btn-clear-saved'].forEach(id => {
+            ['btn-export', 'btn-clear-saved'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = has ? '' : 'none';
             });
         }
+
+        function toggleExportMenu(ev) {
+            ev.stopPropagation();
+            const menu = document.getElementById('export-menu');
+            if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function closeExportMenu() {
+            const menu = document.getElementById('export-menu');
+            if (menu) menu.style.display = 'none';
+        }
+
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('export-menu');
+            if (!menu || menu.style.display === 'none') return;
+            if (!e.target.closest('#export-menu') && e.target.id !== 'btn-export') closeExportMenu();
+        });
 
         /* ---------- Single Model Tester ---------- */
 
@@ -2983,82 +2894,6 @@
             }
         }
 
-        /* ---------- Visual Diff Viewer ---------- */
-
-        function computeDiff(str1, str2) {
-            const lines1 = str1.split('\n');
-            const lines2 = str2.split('\n');
-            const m = lines1.length, n = lines2.length;
-            const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-
-            for (let i = 1; i <= m; i++) {
-                for (let j = 1; j <= n; j++) {
-                    if (lines1[i - 1] === lines2[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1;
-                    else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-                }
-            }
-
-            let i = m, j = n;
-            const diff1 = [], diff2 = [];
-            while (i > 0 || j > 0) {
-                if (i > 0 && j > 0 && lines1[i - 1] === lines2[j - 1]) {
-                    diff1.unshift({ type: 'same', text: lines1[i - 1] });
-                    diff2.unshift({ type: 'same', text: lines2[j - 1] });
-                    i--; j--;
-                } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-                    diff1.unshift({ type: 'empty', text: '' });
-                    diff2.unshift({ type: 'add', text: lines2[j - 1] });
-                    j--;
-                } else {
-                    diff1.unshift({ type: 'del', text: lines1[i - 1] });
-                    diff2.unshift({ type: 'empty', text: '' });
-                    i--;
-                }
-            }
-            return { diff1, diff2 };
-        }
-
-        function diffSelected() {
-            const selected = getSelectedModels();
-            if (selected.length !== 2) {
-                toast('Please select exactly 2 models to compare diff.', 'warning');
-                return;
-            }
-            const r1 = testResults.find(t => t.model === selected[0].model);
-            const r2 = testResults.find(t => t.model === selected[1].model);
-            if (!r1 || !r2 || !r1.response || !r2.response) {
-                toast('Please run tests on both models before comparing diff.', 'warning');
-                return;
-            }
-            openDiffModal(selected[0].model, r1.response, selected[1].model, r2.response);
-        }
-
-        function openDiffModal(name1, text1, name2, text2) {
-            document.getElementById('diffModalTitle').textContent = `🔍 Diff: ${name1} vs ${name2}`;
-            const { diff1, diff2 } = computeDiff(text1, text2);
-
-            let pane1Html = `<h4>${esc(name1)}</h4>`;
-            diff1.forEach(d => {
-                const cls = d.type === 'del' ? 'diff-del' : d.type === 'same' ? 'diff-same' : '';
-                pane1Html += `<div class="diff-line ${cls}">${esc(d.text) || '&nbsp;'}</div>`;
-            });
-
-            let pane2Html = `<h4>${esc(name2)}</h4>`;
-            diff2.forEach(d => {
-                const cls = d.type === 'add' ? 'diff-add' : d.type === 'same' ? 'diff-same' : '';
-                pane2Html += `<div class="diff-line ${cls}">${esc(d.text) || '&nbsp;'}</div>`;
-            });
-
-            document.getElementById('diffContainer').innerHTML = `
-                <div class="diff-pane">${pane1Html}</div>
-                <div class="diff-pane">${pane2Html}</div>
-            `;
-            document.getElementById('diff-modal').classList.add('open');
-        }
-
-        function closeDiffModal() {
-            document.getElementById('diff-modal').classList.remove('open');
-        }
 
 
         /* ---------- Code Snippet Generator Modal ---------- */
@@ -3360,101 +3195,6 @@ func main() {
             toast('Saved to custom templates!', 'success');
         }
 
-        /* ---------- LLM-as-a-Judge ---------- */
-
-        function openJudgeModal() {
-            const okResults = testResults.filter(r => r.status === 'success');
-            if (okResults.length === 0) {
-                toast('Run model tests before evaluating with LLM Judge.', 'warning');
-                return;
-            }
-
-            const provSel = document.getElementById('judge-provider');
-            if (provSel) {
-                provSel.innerHTML = Object.entries(PROVIDER_LABELS)
-                    .map(([val, label]) => `<option value="${val}">${esc(label)}</option>`)
-                    .join('');
-                provSel.value = currentProvider;
-            }
-            document.getElementById('judge-model').value = currentModels[0]?.id || 'gpt-4o';
-            updateJudgeProviderUI();
-            if (currentBaseUrl) document.getElementById('judge-base-url').value = currentBaseUrl;
-            document.getElementById('judge-api-key').value = currentApiKey;
-            document.getElementById('judgeResultsArea').innerHTML = '';
-            document.getElementById('judge-modal').classList.add('open');
-        }
-
-        function closeJudgeModal() {
-            document.getElementById('judge-modal').classList.remove('open');
-        }
-
-        async function startJudgeEvaluation() {
-            const okResults = testResults.filter(r => r.status === 'success');
-            if (!okResults.length) return;
-
-            const provider = document.getElementById('judge-provider').value;
-            const model = document.getElementById('judge-model').value.trim();
-            const baseUrl = document.getElementById('judge-base-url').value.trim();
-            const apiKey = document.getElementById('judge-api-key').value.trim();
-            const rubric = document.getElementById('judge-rubric').value.trim();
-            const prompt = document.getElementById('batch-prompt').value.trim();
-
-            if (!model) { toast('Please enter a Judge Model ID', 'warning'); return; }
-
-            const candidates = okResults.map((r, i) => ({
-                id: `model_${i+1}`,
-                name: r.model,
-                response: r.response
-            }));
-
-            const btn = document.getElementById('btn-start-judge');
-            const resArea = document.getElementById('judgeResultsArea');
-            btn.disabled = true;
-            resArea.innerHTML = '<p>⏳ Judge model is evaluating responses...</p>';
-
-            try {
-                const res = await fetch('/api/judge-responses', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        judge_provider: provider,
-                        judge_model: model,
-                        judge_base_url: baseUrl,
-                        judge_api_key: apiKey,
-                        prompt,
-                        rubric,
-                        candidates
-                    })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Judge request failed');
-
-                const ev = data.evaluation;
-                if (!ev || !ev.evaluations) {
-                    resArea.innerHTML = `<div class="response"><strong>Raw Judge Verdict:</strong><br>${esc(data.raw_output)}</div>`;
-                    return;
-                }
-
-                let html = `<h4>🏆 Verdict &amp; Summary: ${esc(ev.summary || '')}</h4>`;
-                html += '<table class="compare-table"><thead><tr><th>Model</th><th>Score / 10</th><th>Strengths</th><th>Weaknesses</th></tr></thead><tbody>';
-                ev.evaluations.forEach(item => {
-                    html += `
-                        <tr>
-                            <td><strong>${esc(item.name || item.id)}</strong></td>
-                            <td><span style="font-size:16px; font-weight:700; color:var(--accent);">${esc(item.score)}</span></td>
-                            <td style="color:var(--green);">${esc(item.strengths || '—')}</td>
-                            <td style="color:var(--red);">${esc(item.weaknesses || '—')}</td>
-                        </tr>
-                    `;
-                });
-                html += '</tbody></table>';
-                resArea.innerHTML = html;
-            } catch (e) {
-                resArea.innerHTML = `<div class="error">Judge error: ${esc(e.message)}</div>`;
-            } finally {
-                btn.disabled = false;
-            }
-        }
 
 
 
@@ -3778,27 +3518,6 @@ func main() {
             ]);
         }
 
-        function compareSelected() {
-            const selected = getSelectedModels();
-            if (selected.length === 0) {
-                toast('Select at least one model.', 'info');
-                return;
-            }
-            const resultDiv = document.getElementById('result');
-            const cols = selected.map(({ idx }) => {
-                const m = currentModels[idx];
-                const r = testResults.find(t => t.model === m.id);
-                const body = r ? r.response : '(no result yet)';
-                return `<div class="compare-col"><h4>${esc(m.id)}</h4><div class="compare-body">${esc(body)}</div></div>`;
-            }).join('');
-            const html = `<div id="compare-panel" class="test-panel">
-                <h3>Compare ${selected.length} model${selected.length > 1 ? 's' : ''}</h3>
-                <div class="compare-wrap">${cols}</div>
-            </div>`;
-            const panel = document.getElementById('compare-panel');
-            if (panel) panel.outerHTML = html;
-            else resultDiv.insertAdjacentHTML('beforeend', html);
-        }
 
         /* ---------- Exports ---------- */
 
@@ -4067,7 +3786,6 @@ func main() {
             });
             try { localStorage.setItem(VIEW_KEY, view); } catch (e) {}
 
-            if (view === 'settings') loadWebhookConfig();
         }
 
         function loadView() {
@@ -4265,7 +3983,6 @@ func main() {
             { id: 'action-haystack', title: '🎯 Run Needle-in-a-Haystack Retrieval Benchmark', action: () => openHaystackModal() },
             { id: 'action-stress', title: '⚡ Run Concurrency & Rate-Limit Stress Test', action: () => openStressModal() },
             { id: 'action-dossier', title: '📑 Export Self-Contained HTML/PDF Report Dossier', action: () => exportStandaloneDossier() },
-            { id: 'action-webhook', title: '🔔 Configure Webhook & Regression Monitor', action: () => switchView('settings') },
             { id: 'action-cascade', title: '🛡️ Generate Fallback Cascade Code', action: () => openCascadeModal() },
             { id: 'action-cicd', title: '🚀 Export Benchmark Suite to CI/CD', action: () => openCicdExportModal() },
             { id: 'action-tournament', title: '🏆 Run Automated Round-Robin Tournament', action: () => openTournamentModal() },
@@ -4480,130 +4197,6 @@ func main() {
 
 
 
-        // 7. Settings: Provider Key Vault & Connection Ping
-        const VAULT_PROVIDERS = [
-            { id: 'openai', keyVar: 'OPENAI_API_KEY', label: 'OpenAI API' },
-            { id: 'claude', keyVar: 'ANTHROPIC_API_KEY', label: 'Anthropic Claude' },
-            { id: 'gemini', keyVar: 'GEMINI_API_KEY', label: 'Google Gemini' },
-            { id: 'openrouter', keyVar: 'OPENROUTER_API_KEY', label: 'OpenRouter' },
-            { id: 'deepseek', keyVar: 'DEEPSEEK_API_KEY', label: 'DeepSeek API' },
-            { id: 'groq', keyVar: 'GROQ_API_KEY', label: 'Groq Cloud' },
-            { id: 'mistral', keyVar: 'MISTRAL_API_KEY', label: 'Mistral AI' },
-            { id: 'xai', keyVar: 'XAI_API_KEY', label: 'xAI Grok' }
-        ];
-
-        async function initKeyVault() {
-            const container = document.getElementById('keyVaultContainer');
-            if (!container) return;
-
-            let savedKeys = {};
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.keys) savedKeys = data.keys;
-            } catch(e) {}
-
-            container.innerHTML = VAULT_PROVIDERS.map(p => {
-                const val = savedKeys[p.keyVar] || localStorage.getItem(`key_${p.id}`) || '';
-                return `
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <span style="width:120px; font-size:12px; font-weight:600; color:var(--text2);">${p.label}</span>
-                        <input type="password" id="vault-key-${p.id}" value="${esc(val)}" placeholder="API Key..." style="flex:1; padding:6px 8px; font-size:13px;" oninput="localStorage.setItem('key_${p.id}', this.value)">
-                        <button type="button" class="icon-btn" style="padding:4px 8px; font-size:12px;" onclick="pingProviderConnection('${p.id}')">⚡ Ping</button>
-                        <span id="vault-status-${p.id}" style="font-size:11px; width:70px;"></span>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        async function pingProviderConnection(providerId) {
-            const input = document.getElementById(`vault-key-${providerId}`);
-            const statusEl = document.getElementById(`vault-status-${providerId}`);
-            const key = input ? input.value.trim() : '';
-
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--yellow)">...</span>';
-            try {
-                const res = await fetch('/api/ping-provider', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ provider: providerId, api_key: key })
-                });
-                const d = await res.json();
-                if (d.ok) {
-                    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green); font-weight:700;">🟢 ${d.latency_ms}ms</span>`;
-                    toast(`${providerId} connection OK (${d.latency_ms}ms)!`, 'success');
-                } else {
-                    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red); font-weight:700;" title="${esc(d.error || '')}">🔴 Error</span>`;
-                    toast(`${providerId} failed: ${d.error || 'Connection failed'}`, 'error');
-                }
-            } catch (err) {
-                if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);">🔴 Failed</span>`;
-            }
-        }
-
-        async function saveKeyVault() {
-            const keysObj = {};
-            VAULT_PROVIDERS.forEach(p => {
-                const input = document.getElementById(`vault-key-${p.id}`);
-                if (input && input.value.trim()) {
-                    keysObj[p.keyVar] = input.value.trim();
-                }
-            });
-
-            try {
-                const res = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        default_base_url: document.getElementById('env-default-base-url')?.value || '',
-                        default_provider: document.getElementById('env-default-provider')?.value || 'openai',
-                        keys: keysObj
-                    })
-                });
-                const d = await res.json();
-                if (res.ok) {
-                    toast('Key Vault and settings saved to .env!', 'success');
-                } else {
-                    toast(d.error || 'Save failed', 'error');
-                }
-            } catch(e) {
-                toast(e.message, 'error');
-            }
-        }
-
-        function exportProfileBackup() {
-            const backup = {
-                settings: localStorage.getItem(SETTINGS_KEY),
-                prompts: localStorage.getItem(PROMPTS_KEY),
-                pricing: localStorage.getItem(PRICING_KEY),
-                elo: localStorage.getItem(ELO_KEY),
-                templates: localStorage.getItem(CUSTOM_TEMPLATES_KEY),
-                exportDate: new Date().toISOString()
-            };
-            downloadFile('ai-model-lister-profile-backup.json', JSON.stringify(backup, null, 2), 'application/json');
-            toast('Profile backup exported!', 'success');
-        }
-
-        function importProfileBackup(fileInput) {
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.settings) localStorage.setItem(SETTINGS_KEY, data.settings);
-                    if (data.prompts) localStorage.setItem(PROMPTS_KEY, data.prompts);
-                    if (data.pricing) localStorage.setItem(PRICING_KEY, data.pricing);
-                    if (data.elo) localStorage.setItem(ELO_KEY, data.elo);
-                    if (data.templates) localStorage.setItem(CUSTOM_TEMPLATES_KEY, data.templates);
-                    toast('Profile backup successfully imported! Reloading...', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } catch(err) {
-                    toast('Invalid backup file: ' + err.message, 'error');
-                }
-            };
-            reader.readAsText(file);
-        }
 
         // 8. Pricing Modal: Live Sync & Workload Simulator
         async function syncLivePricingFromOpenRouter() {
@@ -5656,115 +5249,13 @@ func main() {
         }
 
 
-        /* ---------- 8. Webhook & Automated Regression Monitor ---------- */
-        async function loadWebhookConfig() {
-            try {
-                const res = await fetch('/api/webhook-config');
-                const data = await res.json();
-                if (!res.ok || !data.config) return;
-
-                const cfg = data.config;
-                const urlEl = document.getElementById('webhook-url');
-                const minEl = document.getElementById('webhook-min-pass');
-                const maxEl = document.getElementById('webhook-max-lat');
-                if (urlEl && cfg.url !== undefined) urlEl.value = cfg.url;
-                if (minEl && cfg.min_pass_rate !== undefined) minEl.value = cfg.min_pass_rate;
-                if (maxEl && cfg.max_latency_ms !== undefined) maxEl.value = cfg.max_latency_ms;
-            } catch (e) {}
-        }
-
-        async function saveWebhookConfig() {
-            const url = document.getElementById('webhook-url')?.value.trim();
-            const minPass = parseFloat(document.getElementById('webhook-min-pass')?.value || '80');
-            const maxLat = parseFloat(document.getElementById('webhook-max-lat')?.value || '5000');
-
-            try {
-                const res = await fetch('/api/webhook-config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: url,
-                        min_pass_rate: minPass,
-                        max_latency_ms: maxLat,
-                        enabled: !!url
-                    })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    toast('Webhook alert configuration saved!', 'success');
-                } else {
-                    toast(`Failed to save config: ${data.error}`, 'error');
-                }
-            } catch (e) {
-                toast(`Save error: ${e.message}`, 'error');
-            }
-        }
-
-        async function testWebhookNotification() {
-            const url = document.getElementById('webhook-url')?.value.trim();
-            const statusEl = document.getElementById('webhook-status');
-            if (!url) {
-                toast('Please enter a Webhook URL first.', 'warning');
-                return;
-            }
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--muted);">Sending test alert...</span>';
-
-            try {
-                const res = await fetch('/api/test-webhook', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: url,
-                        message: 'Test notification from AI Model Lister regression monitor.'
-                    })
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    if (statusEl) statusEl.innerHTML = '<span style="color:var(--green);">✓ Alert delivered (HTTP ' + (data.status_code || 200) + ')</span>';
-                    toast('Test alert successfully dispatched!', 'success');
-                } else {
-                    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red);">✗ Delivery failed: ' + esc(data.error || 'HTTP ' + data.status_code) + '</span>';
-                    toast(`Webhook error: ${data.error || 'Failed'}`, 'error');
-                }
-            } catch (e) {
-                if (statusEl) statusEl.innerHTML = '<span style="color:var(--red);">✗ Error: ' + esc(e.message) + '</span>';
-                toast(`Webhook dispatch failed: ${e.message}`, 'error');
-            }
-        }
-
-        async function runMonitoredBenchmark() {
-            const statusEl = document.getElementById('webhook-status');
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent);">Running benchmark & checking regression rules...</span>';
-
-            try {
-                const res = await fetch('/api/trigger-monitored-benchmark', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ suite: 'coding', model: 'gpt-4o' })
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    if (data.regression_detected) {
-                        statusEl.innerHTML = '<span style="color:var(--yellow);">⚠️ Regression detected! Webhook alert: ' + (data.alert_dispatched ? 'Dispatched' : 'Skipped (no URL)') + '</span>';
-                        toast('Regression detected! Webhook notification triggered.', 'warning');
-                    } else {
-                        statusEl.innerHTML = '<span style="color:var(--green);">✓ Benchmark passed guardrails (Pass rate: ' + data.pass_rate + '%, Latency: ' + data.avg_latency_ms + 'ms)</span>';
-                        toast('Benchmark passed guardrails!', 'success');
-                    }
-                }
-            } catch (e) {
-                if (statusEl) statusEl.innerHTML = '<span style="color:var(--red);">✗ Error: ' + esc(e.message) + '</span>';
-            }
-        }
 
 
         window.addEventListener('DOMContentLoaded', () => {
-            initKeyVault();
             updateCostSimulator();
             refreshSystemSpecs();
             detectPromptVariables();
             updateCustomSuitesDropdown();
-            loadWebhookConfig();
         });
 
     </script>

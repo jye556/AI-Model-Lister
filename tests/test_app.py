@@ -869,19 +869,6 @@ class NewFeaturesTests(unittest.TestCase):
         self.assertTrue(len(body['templates']) >= 5)
         self.assertTrue(any(t['id'] == 'senior-architect' for t in body['templates']))
 
-    def test_ping_provider(self):
-        fake = FakeResponse(json_data={'data': []}, status_code=200)
-        with mock.patch.object(app_module.requests, 'get', return_value=fake):
-            resp = self.client.post('/api/ping-provider', json={
-                'provider': 'openai',
-                'api_key': 'sk-test'
-            })
-        self.assertEqual(resp.status_code, 200)
-        body = resp.get_json()
-        self.assertTrue(body['ok'])
-        self.assertIn('latency_ms', body)
-        self.assertEqual(body['provider'], 'openai')
-
     def test_system_resources(self):
         resp = self.client.get('/api/system-resources')
         self.assertEqual(resp.status_code, 200)
@@ -1036,40 +1023,6 @@ class NewFeaturesTests(unittest.TestCase):
         self.assertTrue(body['ok'])
         self.assertIn('<!DOCTYPE html>', body['html'])
         self.assertIn('Test Report', body['html'])
-
-    def test_webhook_config_and_test(self):
-        get_resp = self.client.get('/api/webhook-config')
-        self.assertEqual(get_resp.status_code, 200)
-
-        post_resp = self.client.post('/api/webhook-config', json={
-            'url': 'https://example.com/webhook',
-            'min_pass_rate': 85.0,
-            'enabled': True
-        })
-        self.assertEqual(post_resp.status_code, 200)
-        self.assertEqual(post_resp.get_json()['config']['min_pass_rate'], 85.0)
-
-        fake_resp = mock.MagicMock()
-        fake_resp.ok = True
-        fake_resp.status_code = 200
-        fake_resp.text = 'ok'
-        with mock.patch.object(app_module.requests, 'post', return_value=fake_resp):
-            test_resp = self.client.post('/api/test-webhook', json={
-                'url': 'https://discord.com/api/webhooks/test',
-                'message': 'Test message'
-            })
-            self.assertEqual(test_resp.status_code, 200)
-            self.assertTrue(test_resp.get_json()['ok'])
-
-    def test_trigger_monitored_benchmark(self):
-        resp = self.client.post('/api/trigger-monitored-benchmark', json={
-            'suite': 'coding',
-            'model': 'gpt-4o'
-        })
-        self.assertEqual(resp.status_code, 200)
-        body = resp.get_json()
-        self.assertTrue(body['ok'])
-        self.assertEqual(body['suite'], 'coding')
 
 
 
