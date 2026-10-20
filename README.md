@@ -30,10 +30,6 @@ List models per provider, run batch tests with live token streaming, measure lat
 ### Listing & testing
 - Live model listing per provider, with metadata (display name, context window, owner, creation date)
 - Single-model and **batch** testing — sequential or concurrent, with a configurable delay between calls
-- **Multi-Turn Interactive Chat** — test multi-turn conversations with model selection, custom Base URL, and system prompts
-- **A/B Blind Arena Evaluation** — side-by-side randomized blind model comparison with custom Base URLs, provider configs, and instant identity reveal
-- **Automated Benchmark Suites** — evaluate models against standardized prompt suites (Coding, Logic & Reasoning, Creative Writing, Safety & Alignment)
-- **Local Ollama Model Manager** — inspect locally installed Ollama models, download/pull new models, or delete unused tags directly from the UI
 - **Multimodal / Vision testing** — attach images via file picker, image URL, or `Ctrl+V` clipboard paste directly into prompts; client-side downscaling prevents payload limits; the default prompt automatically becomes "Describe what is in this image?" while an image is attached and reverts to "Hello!" once it is removed
 - **Native Vision adapters** — automatic payload translation for Google Gemini (`inlineData`), Anthropic Claude (`image` content blocks), xAI Grok, and OpenAI-compatible (`image_url`) endpoints
 - **Vision badges** — `👁️ Vision` badge automatically tags recognized multimodal models in listings and comparisons
@@ -148,18 +144,10 @@ Notes:
 | `POST` | `/list-models` | List models for a provider |
 | `POST` | `/test-model` | Run one model test (returns response + TTFT + usage as JSON) |
 | `POST` | `/test-model-stream` | Live-stream a model test as SSE (`ttft` / `delta` / `usage` / `retry` / `done`) |
-| `POST` | `/test-chat` | Multi-turn conversation chat testing across providers |
-| `POST` | `/test-chat-stream` | Real-time SSE streaming multi-turn chat |
-| `POST` | `/test-suite` | Run evaluation prompt suites (Coding, Logic, Creative, Safety) |
-| `POST` | `/test-suite-matrix` | Run benchmark prompt suites across multiple models with keyword & regex assertion checks |
 | `GET` / `POST` | `/api/pricing/sync` | Sync live per-1M token pricing from OpenRouter API |
-| `GET` / `POST` | `/api/local-health` | Scan and auto-discover local inference engines (Ollama, LM Studio, vLLM, LocalAI, Jan) |
 | `POST` | `/api/generate-code` | Generate ready-to-run cURL, Python SDK, Requests, and JavaScript code snippets |
 | `POST` | `/api/evaluate-assertion` | Test responses against assertions (keywords, regex, json schema, length) |
 | `GET` | `/api/prompt-templates` | Curated system prompt presets catalog |
-| `GET` / `POST` | `/ollama/tags` | List local installed Ollama model tags |
-| `POST` | `/ollama/pull` | Pull and download new model to Ollama |
-| `DELETE` / `POST` | `/ollama/delete` | Delete model from local Ollama instance |
 | `GET` | `/check-update` | Compare local version against GitHub |
 | `POST` | `/update` | Pull latest and restart (or return Docker guidance) |
 | `GET` | `/health` | `{status, version}` |
