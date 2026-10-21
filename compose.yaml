@@ -16,6 +16,8 @@ services:
     environment:
       DEFAULT_BASE_URL: ${DEFAULT_BASE_URL:-https://api.openai.com/v1}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
+      CUSTOM_PROVIDERS: ${CUSTOM_PROVIDERS:-}
+      PROVIDER_ORDER: ${PROVIDER_ORDER:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:2463/health', timeout=4).status == 200 else 1)"]

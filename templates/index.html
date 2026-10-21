@@ -396,6 +396,41 @@
         .compare-table .yes { color: var(--green); font-weight: 700; }
         .compare-table .no { color: var(--red); font-weight: 700; }
 
+        /* Custom provider editor */
+        .custom-provider-row {
+            display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+        }
+        .custom-provider-row input[type="text"] { flex: 1; min-width: 0; }
+        .custom-provider-row .icon-btn { padding: 6px 10px; font-size: 12px; flex: 0 0 auto; }
+        .custom-provider-empty {
+            font-size: 12px; color: var(--faint); padding: 10px 0;
+            border: 1px dashed var(--border); border-radius: 6px; text-align: center;
+        }
+        .custom-provider-id {
+            font-family: monospace; font-size: 11px; color: var(--dim); margin-top: -4px;
+        }
+
+        /* Provider order (user sorting) */
+        .provider-order-list {
+            max-height: 420px; overflow-y: auto;
+            border: 1px solid var(--border); border-radius: 8px; padding: 6px;
+        }
+        .provider-order-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 6px; cursor: grab;
+            border: 1px solid transparent; font-size: 13px;
+        }
+        .provider-order-item:hover { background: var(--bg2); border-color: var(--border); }
+        .provider-order-item.dragging { opacity: 0.45; }
+        .provider-order-item.drag-over { border-color: var(--accent); background: var(--bg2); }
+        .provider-order-item .drag-handle { color: var(--dim); cursor: grab; font-size: 14px; }
+        .provider-order-item .po-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .provider-order-item .po-badge {
+            font-size: 10px; padding: 1px 6px; border-radius: 10px;
+            background: var(--bg3); color: var(--muted); border: 1px solid var(--border);
+        }
+        .provider-order-item .icon-btn { padding: 2px 8px; font-size: 11px; }
+
         .copy-btn {
             background: transparent; border: 1px solid var(--border); color: var(--muted);
             border-radius: 4px; padding: 1px 5px; margin-left: 6px;
@@ -795,24 +830,9 @@
                     <div class="form-group">
                         <label for="provider">Provider</label>
                         <select id="provider">
-                            <option value="openai" {% if default_provider == 'openai' %}selected{% endif %}>OpenAI Compatible (OpenAI, Groq, Together...)</option>
-                            <option value="openrouter" {% if default_provider == 'openrouter' %}selected{% endif %}>OpenRouter</option>
-                            <option value="azure" {% if default_provider == 'azure' %}selected{% endif %}>Azure OpenAI</option>
-                            <option value="ollama" {% if default_provider == 'ollama' %}selected{% endif %}>Ollama (local)</option>
-                            <option value="lmstudio" {% if default_provider == 'lmstudio' %}selected{% endif %}>LM Studio (local :1234)</option>
-                            <option value="vllm" {% if default_provider == 'vllm' %}selected{% endif %}>vLLM (local :8000)</option>
-                            <option value="localai" {% if default_provider == 'localai' %}selected{% endif %}>LocalAI (local :8080)</option>
-                            <option value="jan" {% if default_provider == 'jan' %}selected{% endif %}>Jan (local :1337)</option>
-                            <option value="deepseek" {% if default_provider == 'deepseek' %}selected{% endif %}>DeepSeek</option>
-                            <option value="mistral" {% if default_provider == 'mistral' %}selected{% endif %}>Mistral</option>
-                            <option value="groq" {% if default_provider == 'groq' %}selected{% endif %}>Groq</option>
-                            <option value="together" {% if default_provider == 'together' %}selected{% endif %}>Together</option>
-                            <option value="xai" {% if default_provider == 'xai' %}selected{% endif %}>xAI Grok</option>
-                            <option value="gemini" {% if default_provider == 'gemini' %}selected{% endif %}>Google Gemini</option>
-                            <option value="claude" {% if default_provider == 'claude' %}selected{% endif %}>Anthropic Claude</option>
-                            <option value="nvidia" {% if default_provider == 'nvidia' %}selected{% endif %}>NVIDIA NIM</option>
-                            <option value="bedrock" {% if default_provider == 'bedrock' %}selected{% endif %}>AWS Bedrock</option>
-                            <option value="vertex" {% if default_provider == 'vertex' %}selected{% endif %}>Google Vertex AI</option>
+                            {% for p in provider_catalog %}
+                            <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}{% if p.custom %} (custom){% endif %}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
@@ -988,6 +1008,31 @@
                             </div>
                         </div>
 
+                        <div class="provider-card">
+                            <h3>Custom Providers</h3>
+                            <p style="margin-top:4px;margin-bottom:18px;">Add your own OpenAI-compatible endpoints manually. They are stored in <code>CUSTOM_PROVIDERS</code> and appear in the <b>Model Lister</b> and <b>Model Comparer</b> provider lists.</p>
+
+                            <div id="env-custom-providers"></div>
+
+                            <button type="button" class="btn-orange" onclick="addCustomProviderRow()" style="margin-top:10px;">+ Add provider</button>
+
+                            <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
+                                <button class="btn-green" onclick="saveEnvSettings()">💾 Save to .env</button>
+                            </div>
+                        </div>
+
+                        <div class="provider-card">
+                            <h3>Provider Order</h3>
+                            <p style="margin-top:4px;margin-bottom:18px;">Sort the providers to control the order they appear in the <b>Model Lister</b> and <b>Model Comparer</b> dropdowns. Saved as <code>PROVIDER_ORDER</code>.</p>
+
+                            <div id="env-provider-order" class="provider-order-list"></div>
+
+                            <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
+                                <button class="btn-green" onclick="saveEnvSettings()">💾 Save to .env</button>
+                                <button type="button" class="icon-btn" onclick="resetProviderOrder()">Reset order</button>
+                            </div>
+                        </div>
+
 
 
                     </div>
@@ -1099,26 +1144,7 @@
         const ELO_KEY = 'model-lister:arena-elo';
         const CUSTOM_TEMPLATES_KEY = 'model-lister:custom-templates';
 
-        const PROVIDER_DEFAULTS = {
-            openai: {{ default_base_url | tojson }},
-            openrouter: 'https://openrouter.ai/api/v1',
-            azure: 'https://models.inference.ai.azure.com',
-            ollama: 'http://localhost:11434/v1',
-            lmstudio: 'http://localhost:1234/v1',
-            vllm: 'http://localhost:8000/v1',
-            localai: 'http://localhost:8080/v1',
-            jan: 'http://localhost:1337/v1',
-            deepseek: 'https://api.deepseek.com/v1',
-            mistral: 'https://api.mistral.ai/v1',
-            groq: 'https://api.groq.com/openai/v1',
-            together: 'https://api.together.xyz/v1',
-            xai: 'https://api.x.ai/v1',
-            gemini: 'https://generativelanguage.googleapis.com/v1beta',
-            claude: 'https://api.anthropic.com/v1',
-            nvidia: 'https://integrate.api.nvidia.com/v1',
-            bedrock: 'https://bedrock-runtime.us-east-1.amazonaws.com',
-            vertex: 'https://us-central1-aiplatform.googleapis.com/v1'
-        };
+        const PROVIDER_DEFAULTS = {};
 
         const KEY_PLACEHOLDERS = {
             openai: 'sk-... (API key)',
@@ -1141,26 +1167,23 @@
             vertex: 'OAuth Bearer Token / API Key'
         };
 
-        const PROVIDER_LABELS = {
-            openai: 'OpenAI Compatible',
-            openrouter: 'OpenRouter',
-            azure: 'Azure OpenAI',
-            ollama: 'Ollama (local :11434)',
-            lmstudio: 'LM Studio (local :1234)',
-            vllm: 'vLLM (local :8000)',
-            localai: 'LocalAI (local :8080)',
-            jan: 'Jan (local :1337)',
-            deepseek: 'DeepSeek',
-            mistral: 'Mistral',
-            groq: 'Groq',
-            together: 'Together',
-            xai: 'xAI Grok',
-            gemini: 'Google Gemini',
-            claude: 'Anthropic Claude',
-            nvidia: 'NVIDIA NIM',
-            bedrock: 'AWS Bedrock',
-            vertex: 'Google Vertex AI'
-        };
+        const PROVIDER_LABELS = {};
+
+        // Ordered provider catalog: built-in providers plus any custom providers
+        // the user added in Settings, in the order the user configured.
+        let PROVIDER_CATALOG = {{ provider_catalog | tojson }};
+
+        // Rebuild the provider maps from the ordered catalog.
+        function applyProviderCatalog(catalog) {
+            const list = Array.isArray(catalog) && catalog.length ? catalog : PROVIDER_CATALOG;
+            Object.keys(PROVIDER_DEFAULTS).forEach(k => delete PROVIDER_DEFAULTS[k]);
+            Object.keys(PROVIDER_LABELS).forEach(k => delete PROVIDER_LABELS[k]);
+            list.forEach(p => {
+                PROVIDER_LABELS[p.id] = p.label;
+                if (p.base_url) PROVIDER_DEFAULTS[p.id] = p.base_url;
+            });
+        }
+        applyProviderCatalog(PROVIDER_CATALOG);
 
         var battleCandidates = [
             { provider: 'openai', model: 'gpt-4o', base_url: PROVIDER_DEFAULTS['openai'] || 'https://api.openai.com/v1', api_key: '' },
@@ -1639,15 +1662,22 @@
             }
         }
 
+        // Tracks the base URL last auto-filled into the DEFAULT_BASE_URL field so
+        // a manually typed value is never overwritten by a provider change.
+        let envDefaultBaseUrlAuto = '';
+
         function updateEnvDefaultProviderUI() {
             const providerEl = document.getElementById('env-default-provider');
             if (!providerEl) return;
             const provider = providerEl.value;
             const def = PROVIDER_DEFAULTS[provider] || '';
             const baseUrlInput = document.getElementById('env-default-base-url');
-            if (baseUrlInput) {
-                baseUrlInput.placeholder = def ? def + ' (default)' : 'https://api.openai.com/v1';
+            if (!baseUrlInput) return;
+            baseUrlInput.placeholder = def ? def + ' (default)' : 'https://api.openai.com/v1';
+            const current = (baseUrlInput.value || '').trim();
+            if (!current || current === envDefaultBaseUrlAuto) {
                 baseUrlInput.value = def;
+                envDefaultBaseUrlAuto = def;
             }
         }
 
@@ -3204,13 +3234,38 @@ func main() {
 
         /* ---------- Comparison & UI Helpers ---------- */
 
+        function providerOptionsHtml() {
+            return PROVIDER_CATALOG.map(p =>
+                `<option value="${esc(p.id)}">${esc(p.label)}${p.custom ? ' (custom)' : ''}</option>`
+            ).join('');
+        }
+
+        // Repopulate every provider dropdown from the current catalog, keeping
+        // the user's selection when the provider still exists.
+        function refreshProviderSelects() {
+            const html = providerOptionsHtml();
+            const selects = ['provider', 'compare-a-provider', 'compare-b-provider',
+                'env-default-provider', 'tools-provider', 'redteam-provider',
+                'haystack-provider', 'stress-provider', 'judge-provider',
+                'tournament-judge-provider', 'batch-arena-provider-a',
+                'batch-arena-provider-b', 'synth-provider', 'chat-provider',
+                'suite-provider', 'ab-provider-a', 'ab-provider-b'];
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const prev = el.value;
+                el.innerHTML = html;
+                if (prev && Array.from(el.options).some(o => o.value === prev)) {
+                    el.value = prev;
+                }
+            });
+        }
+
         function populateCompareSelects() {
+            refreshProviderSelects();
             ['a', 'b'].forEach(side => {
                 const sel = document.getElementById(`compare-${side}-provider`);
                 if (sel) {
-                    sel.innerHTML = Object.entries(PROVIDER_LABELS)
-                        .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
-                        .join('');
                     if (side === 'a') {
                         sel.value = DEFAULT_PROVIDER || 'openai';
                     } else if (side === 'b') {
@@ -3219,37 +3274,8 @@ func main() {
                 }
                 const abSel = document.getElementById(`ab-provider-${side}`);
                 if (abSel) {
-                    abSel.innerHTML = Object.entries(PROVIDER_LABELS)
-                        .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
-                        .join('');
                     if (side === 'a') abSel.value = 'openai';
                     else if (side === 'b') abSel.value = 'claude';
-                }
-            });
-            const chatSel = document.getElementById('chat-provider');
-            if (chatSel) {
-                chatSel.innerHTML = Object.entries(PROVIDER_LABELS)
-                    .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
-                    .join('');
-            }
-            const suiteSel = document.getElementById('suite-provider');
-            if (suiteSel) {
-                suiteSel.innerHTML = Object.entries(PROVIDER_LABELS)
-                    .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
-                    .join('');
-            }
-            const envSel = document.getElementById('env-default-provider');
-            if (envSel) {
-                envSel.innerHTML = Object.entries(PROVIDER_LABELS)
-                    .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
-                    .join('');
-            }
-            ['tools-provider', 'redteam-provider', 'haystack-provider', 'stress-provider', 'judge-provider', 'tournament-judge-provider', 'batch-arena-provider-a', 'batch-arena-provider-b', 'synth-provider'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.innerHTML = Object.entries(PROVIDER_LABELS)
-                        .map(([value, label]) => `<option value="${value}">${esc(label)}</option>`)
-                        .join('');
                 }
             });
             updateCompareProviderUI('a');
@@ -3314,7 +3340,10 @@ func main() {
 
         function validateCompareConfig(cfg, side) {
             if (cfg.headers === null) return `Provider ${side.toUpperCase()}: headers must be a JSON object`;
-            if (!cfg.api_key && !['ollama', 'lmstudio', 'vllm', 'localai', 'jan'].includes(cfg.provider)) return `Provider ${side.toUpperCase()}: API key is required`;
+            const localIds = ['ollama', 'lmstudio', 'vllm', 'localai', 'jan'];
+            const base = (cfg.base_url || '').toLowerCase();
+            const isLocal = localIds.includes(cfg.provider) || base.includes('localhost') || base.includes('127.0.0.1');
+            if (!cfg.api_key && !isLocal) return `Provider ${side.toUpperCase()}: API key is required`;
             if (!cfg.base_url && cfg.provider === 'azure') return `Provider ${side.toUpperCase()}: Azure requires a base URL`;
             return null;
         }
@@ -3851,43 +3880,269 @@ func main() {
             }
         }
 
+        /* ---------- Settings: custom providers & provider order ---------- */
+
+        // Working copy of the user-defined providers (edited in the Settings view).
+        let envCustomProviders = [];
+        // Working copy of the provider order (edited in the Settings view).
+        let envProviderOrder = [];
+        // Resolves once the initial settings load finished, so that edits made
+        // while the request is in flight are not overwritten.
+        let envSettingsLoad = Promise.resolve();
+
+        function slugifyProviderId(label) {
+            const slug = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            return slug || 'custom-provider';
+        }
+
+        function uniqueProviderId(label, taken) {
+            const base = slugifyProviderId(label);
+            let id = base;
+            let n = 2;
+            while (taken.has(id)) { id = `${base}-${n}`; n++; }
+            return id;
+        }
+
+        function takenProviderIds() {
+            return new Set(PROVIDER_CATALOG.map(p => p.id));
+        }
+
+        function renderCustomProviderRows() {
+            const box = document.getElementById('env-custom-providers');
+            if (!box) return;
+            if (!envCustomProviders.length) {
+                box.innerHTML = '<div class="custom-provider-empty">No custom providers yet. Use “+ Add provider” to create one.</div>';
+                return;
+            }
+            box.innerHTML = envCustomProviders.map((p, i) => `
+                <div class="custom-provider-row" data-index="${i}">
+                    <input type="text" class="cp-label" data-index="${i}" value="${esc(p.label)}" placeholder="Display name" autocomplete="off">
+                    <input type="text" class="cp-base-url" data-index="${i}" value="${esc(p.base_url)}" placeholder="https://api.example.com/v1" autocomplete="off">
+                    <button type="button" class="icon-btn" title="Remove provider" onclick="removeCustomProviderRow(${i})">✕</button>
+                </div>
+                <div class="custom-provider-id" data-index="${i}">id: ${esc(p.id)}</div>
+            `).join('');
+            attachCustomProviderInputHandlers(box);
+        }
+
+        function attachCustomProviderInputHandlers(box) {
+            box.querySelectorAll('.cp-label, .cp-base-url').forEach(input => {
+                input.addEventListener('input', () => {
+                    const index = parseInt(input.dataset.index, 10);
+                    const field = input.classList.contains('cp-label') ? 'label' : 'base_url';
+                    updateCustomProviderField(index, field, input.value);
+                });
+            });
+        }
+
+        function addCustomProviderRow() {
+            envSettingsLoad.then(() => {
+                const taken = takenProviderIds();
+                envCustomProviders.forEach(p => taken.add(p.id));
+                const id = uniqueProviderId('custom-provider', taken);
+                envCustomProviders.push({ id, origId: null, label: '', base_url: '' });
+                renderCustomProviderRows();
+                const rows = document.querySelectorAll('#env-custom-providers .cp-label');
+                const last = rows[rows.length - 1];
+                if (last) last.focus();
+            });
+        }
+
+        function removeCustomProviderRow(index) {
+            envSettingsLoad.then(() => {
+                envCustomProviders.splice(index, 1);
+                renderCustomProviderRows();
+            });
+        }
+
+        function updateCustomProviderField(index, field, value) {
+            const p = envCustomProviders[index];
+            if (!p) return;
+            p[field] = value;
+            if (field === 'label') {
+                // Derive the provider id from the label so it stays readable
+                // (e.g. "My Gateway" -> "my-gateway").
+                const taken = takenProviderIds();
+                if (p.origId) taken.delete(p.origId);
+                envCustomProviders.forEach((other, i) => { if (i !== index) taken.add(other.id); });
+                const previousId = p.id;
+                const id = uniqueProviderId(p.label || 'custom-provider', taken);
+                p.id = id;
+                // Keep the provider order pointing at the (possibly new) id.
+                if (previousId && previousId !== id) {
+                    const pos = envProviderOrder.indexOf(previousId);
+                    if (pos >= 0) envProviderOrder[pos] = id;
+                }
+                const idEl = document.querySelector(`#env-custom-providers .custom-provider-id[data-index="${index}"]`);
+                if (idEl) idEl.textContent = `id: ${id}`;
+            }
+        }
+
+        // Ordered provider list shown in the Settings "Provider Order" card.
+        function orderedProviderEntries() {
+            const byId = new Map(PROVIDER_CATALOG.map(p => [p.id, p]));
+            const entries = [];
+            const seen = new Set();
+            envProviderOrder.forEach(id => {
+                if (byId.has(id) && !seen.has(id)) {
+                    entries.push(byId.get(id));
+                    seen.add(id);
+                }
+            });
+            PROVIDER_CATALOG.forEach(p => {
+                if (!seen.has(p.id)) { entries.push(p); seen.add(p.id); }
+            });
+            return entries;
+        }
+
+        function renderProviderOrderList() {
+            const box = document.getElementById('env-provider-order');
+            if (!box) return;
+            const entries = orderedProviderEntries();
+            box.innerHTML = entries.map(p => `
+                <div class="provider-order-item" draggable="true" data-id="${esc(p.id)}">
+                    <span class="drag-handle" title="Drag to reorder">⠿</span>
+                    <span class="po-label">${esc(p.label)}</span>
+                    ${p.custom ? '<span class="po-badge">custom</span>' : ''}
+                    <button type="button" class="icon-btn" title="Move up" onclick="moveProviderInOrder('${esc(p.id)}', -1)">↑</button>
+                    <button type="button" class="icon-btn" title="Move down" onclick="moveProviderInOrder('${esc(p.id)}', 1)">↓</button>
+                </div>
+            `).join('');
+            attachProviderOrderDnD(box);
+        }
+
+        function moveProviderInOrder(id, delta) {
+            const entries = orderedProviderEntries();
+            const idx = entries.findIndex(p => p.id === id);
+            if (idx < 0) return;
+            const target = idx + delta;
+            if (target < 0 || target >= entries.length) return;
+            const [moved] = entries.splice(idx, 1);
+            entries.splice(target, 0, moved);
+            envProviderOrder = entries.map(p => p.id);
+            renderProviderOrderList();
+        }
+
+        function resetProviderOrder() {
+            envProviderOrder = PROVIDER_CATALOG.map(p => p.id);
+            renderProviderOrderList();
+        }
+
+        function attachProviderOrderDnD(box) {
+            let dragId = null;
+            box.querySelectorAll('.provider-order-item').forEach(item => {
+                item.addEventListener('dragstart', e => {
+                    dragId = item.dataset.id;
+                    item.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    try { e.dataTransfer.setData('text/plain', dragId); } catch (err) {}
+                });
+                item.addEventListener('dragend', () => {
+                    dragId = null;
+                    item.classList.remove('dragging');
+                    box.querySelectorAll('.provider-order-item').forEach(i => i.classList.remove('drag-over'));
+                });
+                item.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    item.classList.add('drag-over');
+                });
+                item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+                item.addEventListener('drop', e => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    const targetId = item.dataset.id;
+                    if (!dragId || dragId === targetId) return;
+                    const entries = orderedProviderEntries();
+                    const from = entries.findIndex(p => p.id === dragId);
+                    const to = entries.findIndex(p => p.id === targetId);
+                    if (from < 0 || to < 0) return;
+                    const [moved] = entries.splice(from, 1);
+                    entries.splice(to, 0, moved);
+                    envProviderOrder = entries.map(p => p.id);
+                    renderProviderOrderList();
+                });
+            });
+        }
+
         async function loadEnvSettings() {
-            try {
-                const res = await fetch('/api/settings');
-                if (!res.ok) return;
-                const data = await res.json();
-                const baseUrlEl = document.getElementById('env-default-base-url');
-                const provEl = document.getElementById('env-default-provider');
-                if (baseUrlEl) baseUrlEl.value = data.default_base_url || '';
-                if (provEl && data.default_provider) provEl.value = data.default_provider;
-            } catch (e) {}
+            envSettingsLoad = (async () => {
+                try {
+                    const res = await fetch('/api/settings');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const baseUrlEl = document.getElementById('env-default-base-url');
+                    const provEl = document.getElementById('env-default-provider');
+                    if (baseUrlEl) {
+                        baseUrlEl.value = data.default_base_url || '';
+                        envDefaultBaseUrlAuto = baseUrlEl.value.trim();
+                    }
+                    if (provEl && data.default_provider) provEl.value = data.default_provider;
+                    if (Array.isArray(data.custom_providers)) {
+                        envCustomProviders = data.custom_providers.map(p => ({
+                            id: p.id, origId: p.id, label: p.label, base_url: p.base_url
+                        }));
+                    }
+                    if (Array.isArray(data.providers) && data.providers.length) {
+                        envProviderOrder = data.providers.map(p => p.id);
+                    }
+                    renderCustomProviderRows();
+                    renderProviderOrderList();
+                } catch (e) {}
+            })();
+            return envSettingsLoad;
         }
 
         async function saveEnvSettings() {
+            await envSettingsLoad;
             const btn = document.getElementById('env-save-btn');
             const status = document.getElementById('env-save-status');
             const default_base_url = document.getElementById('env-default-base-url').value.trim();
             const default_provider = document.getElementById('env-default-provider').value;
+            const custom_providers = envCustomProviders
+                .filter(p => p.label.trim() && p.base_url.trim())
+                .map(p => ({ id: p.id, label: p.label.trim(), base_url: p.base_url.trim() }));
+            const provider_order = envProviderOrder.slice();
 
-            btn.disabled = true;
-            status.textContent = 'Saving…';
+            if (btn) btn.disabled = true;
+            if (status) status.textContent = 'Saving…';
             try {
                 const res = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ default_base_url, default_provider })
+                    body: JSON.stringify({ default_base_url, default_provider, custom_providers, provider_order })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Failed to save');
 
+                // Apply the saved catalog to the Model Lister & Model Comparer.
+                if (Array.isArray(data.providers) && data.providers.length) {
+                    PROVIDER_CATALOG = data.providers;
+                    applyProviderCatalog(data.providers);
+                    refreshProviderSelects();
+                    updatePlaceholders();
+                    updateComparePlaceholders('a');
+                    updateComparePlaceholders('b');
+                }
+                if (Array.isArray(data.custom_providers)) {
+                    envCustomProviders = data.custom_providers.map(p => ({
+                        id: p.id, origId: p.id, label: p.label, base_url: p.base_url
+                    }));
+                }
+                if (Array.isArray(data.provider_order)) {
+                    envProviderOrder = data.provider_order.slice();
+                }
+                renderCustomProviderRows();
+                renderProviderOrderList();
+
                 toast('Settings saved to .env!', 'success');
-                status.textContent = 'Saved!';
-                setTimeout(() => { status.textContent = ''; }, 3000);
+                if (status) status.textContent = 'Saved!';
+                if (status) setTimeout(() => { status.textContent = ''; }, 3000);
             } catch (e) {
                 toast(`Error: ${e.message}`, 'error');
-                status.textContent = 'Failed.';
+                if (status) status.textContent = 'Failed.';
             } finally {
-                btn.disabled = false;
+                if (btn) btn.disabled = false;
             }
         }
 

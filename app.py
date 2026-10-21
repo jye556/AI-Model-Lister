@@ -111,9 +111,208 @@ def get_default_base_url():
     return val or 'https://api.openai.com/v1'
 
 
+def _read_env_values():
+    """Return the .env file contents as a dict (cached until the file changes)."""
+    env_file = os.path.join(APP_DIR, '.env')
+    try:
+        mtime = os.path.getmtime(env_file)
+    except OSError:
+        mtime = None
+    if _ENV_FILE_CACHE['path'] == env_file and _ENV_FILE_CACHE['mtime'] == mtime:
+        return _ENV_FILE_CACHE['values']
+    values = {}
+    if os.path.isfile(env_file):
+        try:
+            with open(env_file, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#') or '=' not in line:
+                        continue
+                    k, v = line.split('=', 1)
+                    values[k.strip()] = v.strip().strip("'\"")
+        except Exception:
+            values = {}
+    _ENV_FILE_CACHE.update({'path': env_file, 'mtime': mtime, 'values': values})
+    return values
+
+
+def _read_env_value(key, default=''):
+    """Read a single setting from the .env file, falling back to the process env."""
+    val = _read_env_values().get(key)
+    if val is None or val == '':
+        val = os.environ.get(key, '')
+    val = (val or '').strip()
+    return val if val else default
+
+
+def _slugify_provider_id(label, fallback='custom'):
+    """Turn a display label into a stable, url/select-safe provider id."""
+    slug = re.sub(r'[^a-z0-9]+', '-', (label or '').lower()).strip('-')
+    return slug or fallback
+
+
+def _parse_custom_providers(raw):
+    """Parse the CUSTOM_PROVIDERS setting into a list of provider dicts.
+
+    Accepts a JSON array of objects, or a compact ``id|label|base_url;...`` form
+    that is convenient for hand-editing the .env file.
+    """
+    raw = (raw or '').strip()
+    if not raw:
+        return []
+    items = []
+    if raw.startswith('['):
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return []
+        if isinstance(data, list):
+            items = data
+    else:
+        for chunk in raw.split(';'):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            parts = chunk.split('|')
+            if len(parts) < 3:
+                continue
+            items.append({'id': parts[0].strip(),
+                          'label': parts[1].strip(),
+                          'base_url': parts[2].strip()})
+    providers = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get('label', '')).strip()
+        base_url = str(item.get('base_url', '')).strip()
+        if not label or not base_url:
+            continue
+        providers.append({'id': str(item.get('id', '')).strip(),
+                          'label': label,
+                          'base_url': base_url})
+    return providers
+
+
+def normalize_custom_providers(raw_items):
+    """Validate user supplied custom providers and assign stable, unique ids.
+
+    Returns ``(providers, id_map)`` where ``id_map`` maps the incoming id (or an
+    empty string) to the id that was actually assigned, so that a provider order
+    referencing the old id can be rewritten.
+    """
+    result = []
+    id_map = {}
+    used = set(PROVIDER_BASE_URLS.keys())
+    for item in raw_items or []:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get('label', '')).strip()
+        base_url = str(item.get('base_url', '')).strip()
+        if not label or not base_url:
+            continue
+        if not base_url.lower().startswith(('http://', 'https://')):
+            continue
+        orig_id = str(item.get('id', '')).strip()
+        pid = orig_id
+        if not pid or not CUSTOM_PROVIDER_ID_RE.match(pid) or pid in used:
+            pid = _slugify_provider_id(label)
+        base = pid
+        suffix = 2
+        while pid in used:
+            pid = f'{base}-{suffix}'
+            suffix += 1
+        used.add(pid)
+        id_map[orig_id] = pid
+        result.append({'id': pid, 'label': label, 'base_url': base_url})
+    return result, id_map
+
+
+def get_custom_providers():
+    """Return the list of user defined providers stored in CUSTOM_PROVIDERS."""
+    return _parse_custom_providers(_read_env_value(CUSTOM_PROVIDERS_ENV_KEY))
+
+
+def get_provider_order():
+    """Return the user defined provider order (list of provider ids)."""
+    raw = _read_env_value(PROVIDER_ORDER_ENV_KEY)
+    seen = set()
+    order = []
+    for pid in (p.strip() for p in raw.split(',')):
+        if pid and pid not in seen:
+            seen.add(pid)
+            order.append(pid)
+    return order
+
+
+def build_provider_catalog():
+    """Return every provider (built-in + custom) in the user defined order.
+
+    Each entry is ``{'id', 'label', 'base_url', 'custom'}``. Providers that the
+    user has not positioned keep their default relative order and are appended.
+    """
+    customs = get_custom_providers()
+    entries = []
+    for pid, label in PROVIDER_LABELS.items():
+        base_url = get_default_base_url() if pid == 'openai' else PROVIDER_BASE_URLS.get(pid, '')
+        entries.append({'id': pid, 'label': label,
+                        'base_url': base_url, 'custom': False})
+    for entry in customs:
+        entries.append({'id': entry['id'], 'label': entry['label'],
+                        'base_url': entry['base_url'], 'custom': True})
+
+    order = get_provider_order()
+    if order:
+        rank = {pid: i for i, pid in enumerate(order)}
+        entries.sort(key=lambda e: (rank.get(e['id'], len(rank)),))
+    return entries
+
+
+def is_local_endpoint(provider, base_url=''):
+    """True when a provider targets a local server and needs no API key."""
+    if provider in LOCAL_PROVIDER_IDS:
+        return True
+    url = (base_url or '').lower()
+    return 'localhost' in url or '127.0.0.1' in url
+
+
 # Default OpenAI-compatible endpoint. Override with the DEFAULT_BASE_URL env var or .env.
 DEFAULT_BASE_URL = get_default_base_url()
 DEFAULT_PROVIDER = os.environ.get('DEFAULT_PROVIDER', 'openai')
+
+# Display labels for the built-in providers (mirrors the labels used by the UI).
+PROVIDER_LABELS = {
+    'openai': 'OpenAI Compatible',
+    'openrouter': 'OpenRouter',
+    'azure': 'Azure OpenAI',
+    'ollama': 'Ollama (local :11434)',
+    'lmstudio': 'LM Studio (local :1234)',
+    'vllm': 'vLLM (local :8000)',
+    'localai': 'LocalAI (local :8080)',
+    'jan': 'Jan (local :1337)',
+    'deepseek': 'DeepSeek',
+    'mistral': 'Mistral',
+    'groq': 'Groq',
+    'together': 'Together',
+    'xai': 'xAI Grok',
+    'gemini': 'Google Gemini',
+    'claude': 'Anthropic Claude',
+    'nvidia': 'NVIDIA NIM',
+    'bedrock': 'AWS Bedrock',
+    'vertex': 'Google Vertex AI',
+}
+
+# Local providers that never require an API key.
+LOCAL_PROVIDER_IDS = ('ollama', 'lmstudio', 'vllm', 'localai', 'jan')
+
+# .env keys holding user-defined providers and the user-defined provider order.
+CUSTOM_PROVIDERS_ENV_KEY = 'CUSTOM_PROVIDERS'
+PROVIDER_ORDER_ENV_KEY = 'PROVIDER_ORDER'
+
+# Ids accepted for a custom provider entry.
+CUSTOM_PROVIDER_ID_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*$')
+
+# Cache for the parsed .env file (invalidated when the file changes on disk).
+_ENV_FILE_CACHE = {'path': None, 'mtime': None, 'values': {}}
 
 # Self-update configuration.
 GITHUB_REPO = os.environ.get('GITHUB_REPO', 'jye556/AI-Model-Lister').strip() or 'jye556/AI-Model-Lister'
@@ -259,7 +458,13 @@ def get_base_url(provider, custom_base_url):
         return custom_base_url.rstrip('/')
     if provider == 'openai':
         return get_default_base_url()
-    return PROVIDER_BASE_URLS.get(provider, get_default_base_url())
+    base = PROVIDER_BASE_URLS.get(provider)
+    if base:
+        return base
+    for entry in get_custom_providers():
+        if entry['id'] == provider:
+            return entry['base_url'].rstrip('/')
+    return get_default_base_url()
 
 
 def auth_headers(provider, api_key):
@@ -825,7 +1030,8 @@ def consume_stream(gen):
 @app.route('/')
 def index():
     return render_template('index.html', default_base_url=get_default_base_url(),
-                           default_provider=DEFAULT_PROVIDER, version=VERSION)
+                           default_provider=DEFAULT_PROVIDER, version=VERSION,
+                           provider_catalog=build_provider_catalog())
 
 
 @app.route('/health')
@@ -1049,31 +1255,24 @@ def update_app():
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 def manage_settings():
-    """Get or update .env configuration for DEFAULT_BASE_URL and DEFAULT_PROVIDER."""
+    """Get or update .env configuration (defaults, custom providers, provider order)."""
     env_file = os.path.join(APP_DIR, '.env')
 
     if request.method == 'GET':
-        env_vars = {}
-        if os.path.isfile(env_file):
-            try:
-                with open(env_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith('#') or '=' not in line:
-                            continue
-                        k, v = line.split('=', 1)
-                        env_vars[k.strip()] = v.strip().strip("'\"")
-            except Exception:
-                pass
+        env_vars = _read_env_values()
         recognized_keys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'XAI_API_KEY', 'PERPLEXITY_API_KEY', 'TOGETHER_API_KEY', 'COHERE_API_KEY', 'FIREWORKS_API_KEY', 'NVIDIA_API_KEY']
         saved_keys = {}
         for k in recognized_keys:
             val = env_vars.get(k, os.environ.get(k, ''))
             if val:
                 saved_keys[k] = val
+        custom_providers = get_custom_providers()
         return jsonify({
             'default_base_url': env_vars.get('DEFAULT_BASE_URL', os.environ.get('DEFAULT_BASE_URL', '')),
             'default_provider': env_vars.get('DEFAULT_PROVIDER', os.environ.get('DEFAULT_PROVIDER', 'openai')),
+            'custom_providers': custom_providers,
+            'provider_order': get_provider_order(),
+            'providers': build_provider_catalog(),
             'keys': saved_keys
         })
 
@@ -1082,13 +1281,26 @@ def manage_settings():
     new_base_url = data.get('default_base_url', '').strip()
     new_provider = data.get('default_provider', 'openai').strip()
     keys_to_save = data.get('keys', {})
+    custom_providers, id_map = normalize_custom_providers(data.get('custom_providers'))
+    provider_order = [str(p).strip() for p in (data.get('provider_order') or []) if str(p).strip()]
 
-    if new_provider not in PROVIDER_BASE_URLS:
+    valid_providers = set(PROVIDER_BASE_URLS.keys()) | {c['id'] for c in custom_providers}
+    if new_provider not in valid_providers:
         new_provider = 'openai'
+    # Drop ordering entries that no longer exist and de-duplicate.
+    seen_order = set()
+    clean_order = []
+    for pid in provider_order:
+        pid = id_map.get(pid, pid)
+        if pid in valid_providers and pid not in seen_order:
+            seen_order.add(pid)
+            clean_order.append(pid)
 
     lines = []
     found_base_url = False
     found_provider = False
+    found_custom = False
+    found_order = False
 
     if os.path.isfile(env_file):
         try:
@@ -1101,6 +1313,9 @@ def manage_settings():
     saved_key_names = set(keys_to_save.keys()) if isinstance(keys_to_save, dict) else set()
     found_keys = set()
 
+    custom_value = json.dumps(custom_providers, separators=(',', ':'))
+    order_value = ','.join(clean_order)
+
     for line in lines:
         stripped = line.strip()
         if stripped.startswith('DEFAULT_BASE_URL='):
@@ -1109,6 +1324,12 @@ def manage_settings():
         elif stripped.startswith('DEFAULT_PROVIDER='):
             new_lines.append(f'DEFAULT_PROVIDER={new_provider}\n')
             found_provider = True
+        elif stripped.startswith(f'{CUSTOM_PROVIDERS_ENV_KEY}='):
+            new_lines.append(f'{CUSTOM_PROVIDERS_ENV_KEY}={custom_value}\n')
+            found_custom = True
+        elif stripped.startswith(f'{PROVIDER_ORDER_ENV_KEY}='):
+            new_lines.append(f'{PROVIDER_ORDER_ENV_KEY}={order_value}\n')
+            found_order = True
         elif '=' in stripped:
             k, _ = stripped.split('=', 1)
             k = k.strip()
@@ -1126,6 +1347,10 @@ def manage_settings():
         new_lines.append(f'DEFAULT_BASE_URL={new_base_url}\n')
     if not found_provider:
         new_lines.append(f'DEFAULT_PROVIDER={new_provider}\n')
+    if not found_custom:
+        new_lines.append(f'{CUSTOM_PROVIDERS_ENV_KEY}={custom_value}\n')
+    if not found_order:
+        new_lines.append(f'{PROVIDER_ORDER_ENV_KEY}={order_value}\n')
 
     if isinstance(keys_to_save, dict):
         for k, v in keys_to_save.items():
@@ -1140,9 +1365,13 @@ def manage_settings():
     except Exception as e:
         return jsonify({'error': f'Could not write .env: {e}'}), 500
 
+    _ENV_FILE_CACHE.update({'path': None, 'mtime': None, 'values': {}})
+
     global DEFAULT_BASE_URL, DEFAULT_PROVIDER
     os.environ['DEFAULT_BASE_URL'] = new_base_url
     os.environ['DEFAULT_PROVIDER'] = new_provider
+    os.environ[CUSTOM_PROVIDERS_ENV_KEY] = custom_value
+    os.environ[PROVIDER_ORDER_ENV_KEY] = order_value
     DEFAULT_BASE_URL = get_default_base_url()
     DEFAULT_PROVIDER = new_provider
     PROVIDER_BASE_URLS['openai'] = DEFAULT_BASE_URL
@@ -1152,6 +1381,9 @@ def manage_settings():
         'message': 'Settings saved to .env',
         'default_base_url': new_base_url,
         'default_provider': new_provider,
+        'custom_providers': custom_providers,
+        'provider_order': clean_order,
+        'providers': build_provider_catalog(),
     })
 
 
@@ -1165,10 +1397,10 @@ def list_models():
     custom_base_url = data.get('base_url', '').strip()
     timeout = get_timeout(data)
 
-    if provider != 'ollama' and not api_key:
+    base_url = get_base_url(provider, custom_base_url)
+    if not api_key and not is_local_endpoint(provider, base_url):
         return jsonify({'error': 'API key is required'}), 400
 
-    base_url = get_base_url(provider, custom_base_url)
     if not base_url:
         return jsonify({'error': 'This provider requires a custom base URL'}), 400
 
@@ -1270,13 +1502,13 @@ def _validate_test_request(data):
     timeout = get_timeout(data)
     params = parse_gen_params(data)
 
-    is_local = provider in ('ollama', 'lmstudio', 'vllm', 'localai', 'jan') or 'localhost' in custom_base_url or '127.0.0.1' in custom_base_url
+    base_url = get_base_url(provider, custom_base_url)
+    is_local = is_local_endpoint(provider, base_url)
     if not is_local and not api_key:
         return None, (jsonify({'error': 'API key is required'}), 400)
     if not model or not prompt:
         return None, (jsonify({'error': 'model and prompt are required'}), 400)
 
-    base_url = get_base_url(provider, custom_base_url)
     if not base_url:
         return None, (jsonify({'error': 'This provider requires a custom base URL'}), 400)
 
