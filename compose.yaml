@@ -18,6 +18,8 @@ services:
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-openai}
       CUSTOM_PROVIDERS: ${CUSTOM_PROVIDERS:-}
       PROVIDER_ORDER: ${PROVIDER_ORDER:-}
+      HIDDEN_PROVIDERS: ${HIDDEN_PROVIDERS:-}
+      PROVIDER_OVERRIDES: ${PROVIDER_OVERRIDES:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:2463/health', timeout=4).status == 200 else 1)"]

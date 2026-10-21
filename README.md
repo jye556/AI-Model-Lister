@@ -51,8 +51,11 @@ List models per provider, run batch tests with live token streaming, measure lat
 - Checked-model selection remembered per provider in `localStorage`
 - Prompt presets and settings remembered in `localStorage`
 - **Settings tab** — edit and save `DEFAULT_BASE_URL` and `DEFAULT_PROVIDER` directly to `.env` from the web UI
+- **Combined Server Environment panel** — defaults, custom providers and provider order live in one Settings card
 - **Custom providers** — add your own OpenAI-compatible endpoints (name + base URL) from the web UI; saved to `CUSTOM_PROVIDERS` in `.env`
 - **User-defined provider order** — sort providers (drag or ▲/▼) to control the order of the Model Lister and Model Comparer provider dropdowns; saved to `PROVIDER_ORDER` in `.env`
+- **Remove providers** — remove a custom provider to delete it, or remove a built-in one to hide it from the dropdowns; hidden built-ins can be restored with ↺ (saved to `HIDDEN_PROVIDERS` in `.env`)
+- **Edit saved providers** — press **✎** beside the delete button on any provider row to edit its name and base URL inline; changes are saved to `PROVIDER_OVERRIDES` in `.env` and applied to the Model Lister and Model Comparer
 - Extra custom headers (e.g. OpenRouter's `HTTP-Referer`) and a configurable request timeout
 
 ### Operations
@@ -121,14 +124,18 @@ All settings are optional environment variables (can also be configured via `.en
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
 | `CUSTOM_PROVIDERS` | *(empty)* | User-defined providers as a JSON array of `{"id", "label", "base_url"}` objects (the compact `id\|label\|base_url;…` form is also accepted) |
 | `PROVIDER_ORDER` | *(empty)* | Comma-separated provider ids defining the order of the provider dropdowns; unlisted providers keep their default order |
+| `HIDDEN_PROVIDERS` | *(empty)* | Comma-separated ids of built-in providers removed from the dropdowns; restorable from Settings |
+| `PROVIDER_OVERRIDES` | *(empty)* | JSON object of edited providers, e.g. `{"claude": {"label": "Claude (EU)", "base_url": "https://eu.anthropic.com/v1"}}` |
 
-`CUSTOM_PROVIDERS` and `PROVIDER_ORDER` are managed from **Settings → Server Environment** in the web UI, and take effect immediately in the **Model Lister** and **Model Comparer** provider dropdowns.
+`CUSTOM_PROVIDERS`, `PROVIDER_ORDER`, `HIDDEN_PROVIDERS` and `PROVIDER_OVERRIDES` are managed from **Settings → Server Environment** in the web UI, and take effect immediately in the **Model Lister** and **Model Comparer** provider dropdowns. The OpenAI-compatible provider's base URL always comes from `DEFAULT_BASE_URL`, so there is a single source of truth for it.
 
 ```env
 DEFAULT_BASE_URL=https://api.openai.com/v1
 DEFAULT_PROVIDER=openai
 CUSTOM_PROVIDERS=[{"id":"my-llm","label":"My LLM","base_url":"https://api.example.com/v1"}]
 PROVIDER_ORDER=my-llm,openai,openrouter
+HIDDEN_PROVIDERS=azure,gemini
+PROVIDER_OVERRIDES={"claude":{"label":"Claude (EU)","base_url":"https://eu.anthropic.com/v1"}}
 ```
 
 ---

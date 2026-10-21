@@ -396,19 +396,25 @@
         .compare-table .yes { color: var(--green); font-weight: 700; }
         .compare-table .no { color: var(--red); font-weight: 700; }
 
-        /* Custom provider editor */
-        .custom-provider-row {
-            display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+        /* Combined Server Environment panel */
+        .settings-divider {
+            border: none; border-top: 1px solid var(--border); margin: 22px 0 18px 0;
         }
-        .custom-provider-row input[type="text"] { flex: 1; min-width: 0; }
-        .custom-provider-row .icon-btn { padding: 6px 10px; font-size: 12px; flex: 0 0 auto; }
-        .custom-provider-empty {
-            font-size: 12px; color: var(--faint); padding: 10px 0;
-            border: 1px dashed var(--border); border-radius: 6px; text-align: center;
+        .settings-subhead {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            margin-bottom: 4px;
         }
-        .custom-provider-id {
-            font-family: monospace; font-size: 11px; color: var(--dim); margin-top: -4px;
+        .settings-subhead button { padding: 5px 12px; font-size: 12px; }
+        .hidden-providers-box { margin-top: 12px; }
+        .hidden-providers-box:empty { display: none; }
+        .hidden-provider-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 8px; border-radius: 6px; font-size: 12px;
+            color: var(--muted); background: var(--bg2);
+            border: 1px solid var(--border); margin-bottom: 5px;
         }
+        .hidden-provider-row .hp-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hidden-provider-row .icon-btn { padding: 2px 8px; font-size: 11px; }
 
         /* Provider order (user sorting) */
         .provider-order-list {
@@ -424,12 +430,38 @@
         .provider-order-item.dragging { opacity: 0.45; }
         .provider-order-item.drag-over { border-color: var(--accent); background: var(--bg2); }
         .provider-order-item .drag-handle { color: var(--dim); cursor: grab; font-size: 14px; }
-        .provider-order-item .po-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .provider-order-item .po-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+        .provider-order-item .po-label {
+            font-size: 13px; color: var(--text2);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .provider-order-item .po-url {
+            font-family: monospace; font-size: 11px; color: var(--dim);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .provider-order-item input.po-label-input,
+        .provider-order-item input.po-url-input {
+            padding: 4px 8px; font-size: 12px; border-radius: 4px; width: 100%;
+        }
+        .provider-order-item input.po-url-input { font-family: monospace; font-size: 11px; }
         .provider-order-item .po-badge {
             font-size: 10px; padding: 1px 6px; border-radius: 10px;
             background: var(--bg3); color: var(--muted); border: 1px solid var(--border);
+            flex: 0 0 auto;
         }
-        .provider-order-item .icon-btn { padding: 2px 8px; font-size: 11px; }
+        .provider-order-item .icon-btn { padding: 2px 8px; font-size: 11px; flex: 0 0 auto; }
+        .provider-order-item .icon-btn.remove-btn { color: var(--red); }
+        .provider-order-item .icon-btn.remove-btn:hover { color: var(--red); border-color: var(--red); }
+        .provider-order-item .icon-btn.restore-btn { color: var(--green); }
+        .provider-order-item .icon-btn.restore-btn:hover { color: var(--green); border-color: var(--green); }
+        .provider-order-item .icon-btn.edit-btn { color: var(--accent); }
+        .provider-order-item .icon-btn.edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+        .provider-order-item .icon-btn.done-btn { color: var(--green); }
+        .provider-order-item .icon-btn.done-btn:hover { color: var(--green); border-color: var(--green); }
+        .provider-order-item.editing {
+            background: var(--bg2); border-color: var(--accent);
+        }
+        .provider-order-item.editing .drag-handle { color: var(--accent); }
 
         .copy-btn {
             background: transparent; border: 1px solid var(--border); color: var(--muted);
@@ -990,7 +1022,7 @@
                     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:16px;">
                         <div class="provider-card">
                             <h3>Server Environment (.env)</h3>
-                            <p style="margin-top:4px;margin-bottom:18px;">Configure global environment defaults saved directly into the server's <code>.env</code> file.</p>
+                            <p style="margin-top:4px;margin-bottom:18px;">Manage the server's <code>.env</code> file: the default provider and base URL, your own providers, and the order they appear in the <b>Model Lister</b> and <b>Model Comparer</b>.</p>
 
                             <div class="form-group">
                                 <label for="env-default-provider">DEFAULT_PROVIDER</label>
@@ -999,37 +1031,25 @@
 
                             <div class="form-group">
                                 <label for="env-default-base-url">DEFAULT_BASE_URL</label>
-                                <input type="text" id="env-default-base-url" placeholder="https://api.openai.com/v1">
+                                <input type="text" id="env-default-base-url" placeholder="https://api.openai.com/v1" oninput="syncDefaultBaseUrlRow()">
                             </div>
 
-                            <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
-                                <button class="btn-green" id="env-save-btn" onclick="saveEnvSettings()">💾 Save to .env</button>
-                                <span id="env-save-status" style="font-size:13px;color:var(--dim);"></span>
+                            <hr class="settings-divider">
+
+                            <div class="settings-subhead">
+                                <label style="margin:0;">Providers</label>
+                                <button type="button" class="btn-orange" onclick="addCustomProviderRow()">+ Add provider</button>
                             </div>
-                        </div>
-
-                        <div class="provider-card">
-                            <h3>Custom Providers</h3>
-                            <p style="margin-top:4px;margin-bottom:18px;">Add your own OpenAI-compatible endpoints manually. They are stored in <code>CUSTOM_PROVIDERS</code> and appear in the <b>Model Lister</b> and <b>Model Comparer</b> provider lists.</p>
-
-                            <div id="env-custom-providers"></div>
-
-                            <button type="button" class="btn-orange" onclick="addCustomProviderRow()" style="margin-top:10px;">+ Add provider</button>
-
-                            <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
-                                <button class="btn-green" onclick="saveEnvSettings()">💾 Save to .env</button>
-                            </div>
-                        </div>
-
-                        <div class="provider-card">
-                            <h3>Provider Order</h3>
-                            <p style="margin-top:4px;margin-bottom:18px;">Sort the providers to control the order they appear in the <b>Model Lister</b> and <b>Model Comparer</b> dropdowns. Saved as <code>PROVIDER_ORDER</code>.</p>
+                            <p style="margin:4px 0 12px 0;font-size:12px;">Press <b>✎</b> to edit a provider's name or base URL, and it is saved back to <code>.env</code>. Drag to reorder, or use the arrows. Use <b>✕</b> to remove a provider, and <b>↺</b> to restore a removed built-in one.</p>
 
                             <div id="env-provider-order" class="provider-order-list"></div>
 
+                            <div id="env-hidden-providers" class="hidden-providers-box"></div>
+
                             <div style="display:flex;gap:12px;align-items:center;margin-top:20px;">
-                                <button class="btn-green" onclick="saveEnvSettings()">💾 Save to .env</button>
+                                <button class="btn-green" id="env-save-btn" onclick="saveEnvSettings()">💾 Save to .env</button>
                                 <button type="button" class="icon-btn" onclick="resetProviderOrder()">Reset order</button>
+                                <span id="env-save-status" style="font-size:13px;color:var(--dim);"></span>
                             </div>
                         </div>
 
@@ -1174,6 +1194,16 @@
         let PROVIDER_CATALOG = {{ provider_catalog | tojson }};
 
         // Rebuild the provider maps from the ordered catalog.
+        // The OpenAI-compatible provider's base URL is DEFAULT_BASE_URL, so keep
+        // the dedicated field and the provider row in sync. A manually typed
+        // value is left alone by the provider-change handler.
+        function syncDefaultBaseUrlRow() {
+            const input = document.getElementById('env-default-base-url');
+            if (!input) return;
+            const row = document.querySelector('#env-provider-order .po-url-input[data-id="openai"]');
+            if (row && row.value !== input.value) row.value = input.value;
+        }
+
         function applyProviderCatalog(catalog) {
             const list = Array.isArray(catalog) && catalog.length ? catalog : PROVIDER_CATALOG;
             Object.keys(PROVIDER_DEFAULTS).forEach(k => delete PROVIDER_DEFAULTS[k]);
@@ -3880,12 +3910,22 @@ func main() {
             }
         }
 
-        /* ---------- Settings: custom providers & provider order ---------- */
+        /* ---------- Settings: combined Server Environment panel ---------- */
 
         // Working copy of the user-defined providers (edited in the Settings view).
         let envCustomProviders = [];
         // Working copy of the provider order (edited in the Settings view).
         let envProviderOrder = [];
+        // Built-in provider ids the user removed (hidden from the provider lists).
+        let envHiddenProviders = [];
+        // Custom provider ids the user removed in this editing session.
+        let envRemovedCustoms = new Set();
+        // Saved label / base URL overrides the user made to built-in providers.
+        let envProviderOverrides = {};
+        // Id of the provider row currently open in the editor (null = none).
+        let envEditingProviderId = null;
+        // Full catalog including removed built-ins, so they can be restored.
+        let envAllProviders = [];
         // Resolves once the initial settings load finished, so that edits made
         // while the request is in flight are not overwritten.
         let envSettingsLoad = Promise.resolve();
@@ -3904,35 +3944,109 @@ func main() {
         }
 
         function takenProviderIds() {
-            return new Set(PROVIDER_CATALOG.map(p => p.id));
+            return new Set(envAllProviders.map(p => p.id));
+        }
+
+        function customProviderById(id) {
+            return envCustomProviders.find(p => p.id === id) || null;
+        }
+
+        // True when the user removed this provider: built-ins are hidden, custom
+        // ones are deleted outright.
+        function isRemovedProvider(id) {
+            if (envHiddenProviders.includes(id)) return true;
+            return envRemovedCustoms.has(id);
+        }
+
+        // Catalog entry for a provider id, preferring the (possibly edited) custom
+        // provider data over the server-provided catalog.
+        function providerEntry(id) {
+            const custom = customProviderById(id);
+            if (custom) {
+                return { id, label: custom.label, base_url: custom.base_url, custom: true, hidden: false };
+            }
+            const entry = envAllProviders.find(p => p.id === id);
+            if (entry) {
+                const override = envProviderOverrides[id] || {};
+                return {
+                    ...entry,
+                    label: override.label || entry.label,
+                    base_url: override.base_url || entry.base_url,
+                    hidden: envHiddenProviders.includes(id)
+                };
+            }
+            return { id, label: id, base_url: '', custom: false, hidden: envHiddenProviders.includes(id) };
         }
 
         function renderCustomProviderRows() {
-            const box = document.getElementById('env-custom-providers');
-            if (!box) return;
-            if (!envCustomProviders.length) {
-                box.innerHTML = '<div class="custom-provider-empty">No custom providers yet. Use “+ Add provider” to create one.</div>';
-                return;
-            }
-            box.innerHTML = envCustomProviders.map((p, i) => `
-                <div class="custom-provider-row" data-index="${i}">
-                    <input type="text" class="cp-label" data-index="${i}" value="${esc(p.label)}" placeholder="Display name" autocomplete="off">
-                    <input type="text" class="cp-base-url" data-index="${i}" value="${esc(p.base_url)}" placeholder="https://api.example.com/v1" autocomplete="off">
-                    <button type="button" class="icon-btn" title="Remove provider" onclick="removeCustomProviderRow(${i})">✕</button>
-                </div>
-                <div class="custom-provider-id" data-index="${i}">id: ${esc(p.id)}</div>
-            `).join('');
-            attachCustomProviderInputHandlers(box);
+            renderProviderOrderList();
+            renderHiddenProviderList();
         }
 
-        function attachCustomProviderInputHandlers(box) {
-            box.querySelectorAll('.cp-label, .cp-base-url').forEach(input => {
-                input.addEventListener('input', () => {
-                    const index = parseInt(input.dataset.index, 10);
-                    const field = input.classList.contains('cp-label') ? 'label' : 'base_url';
-                    updateCustomProviderField(index, field, input.value);
-                });
-            });
+        // Ordered provider list shown in the combined Settings panel. Removed
+        // providers keep their slot in the order so restoring puts them back.
+        function orderedProviderEntries() {
+            const ids = envProviderOrder.slice();
+            envAllProviders.forEach(p => { if (!ids.includes(p.id)) ids.push(p.id); });
+            envCustomProviders.forEach(p => { if (!ids.includes(p.id)) ids.push(p.id); });
+            return ids.map(providerEntry);
+        }
+
+        function renderProviderOrderList() {
+            const box = document.getElementById('env-provider-order');
+            if (!box) return;
+            const entries = orderedProviderEntries().filter(p => !isRemovedProvider(p.id));
+            box.innerHTML = entries.map(p => {
+                const editing = envEditingProviderId === p.id;
+                return `
+                <div class="provider-order-item${editing ? ' editing' : ''}" draggable="true" data-id="${esc(p.id)}">
+                    <span class="drag-handle" title="Drag to reorder">⠿</span>
+                    <div class="po-fields">
+                        ${editing
+                            ? `<input type="text" class="po-label-input" data-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Display name" autocomplete="off">
+                               <input type="text" class="po-url-input" data-id="${esc(p.id)}" value="${esc(p.base_url || '')}" placeholder="https://api.example.com/v1" autocomplete="off">`
+                            : `<span class="po-label">${esc(p.label)}</span>
+                               <span class="po-url">${esc(p.base_url || '')}</span>`}
+                    </div>
+                    ${p.custom ? '<span class="po-badge">custom</span>' : ''}
+                    <button type="button" class="icon-btn" title="Move up" onclick="moveProviderInOrder('${esc(p.id)}', -1)">▲</button>
+                    <button type="button" class="icon-btn" title="Move down" onclick="moveProviderInOrder('${esc(p.id)}', 1)">▼</button>
+                    <button type="button" class="icon-btn ${editing ? 'done-btn' : 'edit-btn'}"
+                            title="${editing ? 'Finish editing' : 'Edit provider'}"
+                            onclick="${editing ? 'finishEditingProvider' : 'startEditingProvider'}('${esc(p.id)}')">${editing ? '✓' : '✎'}</button>
+                    <button type="button" class="icon-btn remove-btn" title="Remove provider" onclick="removeProvider('${esc(p.id)}')">✕</button>
+                </div>`;
+            }).join('');
+            attachProviderOrderDnD(box);
+            attachProviderFieldHandlers(box);
+        }
+
+        // Open a provider row for editing.
+        function startEditingProvider(id) {
+            envEditingProviderId = id;
+            renderCustomProviderRows();
+            const input = document.querySelector(`#env-provider-order .po-label-input[data-id="${id}"]`);
+            if (input) { input.focus(); input.select(); }
+        }
+
+        // Close the editor and commit any pending change.
+        function finishEditingProvider(id) {
+            commitCustomProviderLabel(id);
+            if (envEditingProviderId === id) envEditingProviderId = null;
+            renderCustomProviderRows();
+        }
+
+        // Removed built-in providers, listed separately so they can be restored.
+        function renderHiddenProviderList() {
+            const box = document.getElementById('env-hidden-providers');
+            if (!box) return;
+            if (!envHiddenProviders.length) { box.innerHTML = ''; return; }
+            box.innerHTML = `
+                <div class="hidden-provider-row">
+                    <span class="hp-label">Removed: ${envHiddenProviders.map(id => esc(providerEntry(id).label)).join(', ')}</span>
+                    ${envHiddenProviders.map(id => `<button type="button" class="icon-btn restore-btn" title="Restore provider" onclick="restoreProvider('${esc(id)}')">↺</button>`).join('')}
+                </div>
+            `;
         }
 
         function addCustomProviderRow() {
@@ -3941,91 +4055,149 @@ func main() {
                 envCustomProviders.forEach(p => taken.add(p.id));
                 const id = uniqueProviderId('custom-provider', taken);
                 envCustomProviders.push({ id, origId: null, label: '', base_url: '' });
+                envProviderOrder.push(id);
+                envEditingProviderId = id;
                 renderCustomProviderRows();
-                const rows = document.querySelectorAll('#env-custom-providers .cp-label');
-                const last = rows[rows.length - 1];
-                if (last) last.focus();
+                const input = document.querySelector(`#env-provider-order .po-label-input[data-id="${id}"]`);
+                if (input) { input.focus(); input.select(); }
             });
         }
-
-        function removeCustomProviderRow(index) {
+        // Remove a provider: custom providers are deleted, built-ins are hidden.
+        function removeProvider(id) {
             envSettingsLoad.then(() => {
-                envCustomProviders.splice(index, 1);
+                const custom = customProviderById(id);
+                if (custom) {
+                    envCustomProviders = envCustomProviders.filter(p => p.id !== id);
+                    envRemovedCustoms.add(id);
+                } else if (!envHiddenProviders.includes(id)) {
+                    envHiddenProviders.push(id);
+                }
+                if (envEditingProviderId === id) envEditingProviderId = null;
                 renderCustomProviderRows();
             });
         }
 
-        function updateCustomProviderField(index, field, value) {
-            const p = envCustomProviders[index];
-            if (!p) return;
-            p[field] = value;
+        function restoreProvider(id) {
+            envSettingsLoad.then(() => {
+                envHiddenProviders = envHiddenProviders.filter(p => p !== id);
+                envRemovedCustoms.delete(id);
+                renderCustomProviderRows();
+            });
+        }
+
+        // Apply an edit to a provider. Custom providers store the new values in
+        // their own entry; built-in providers get a saved label / base URL
+        // override. The openai provider's base URL always comes from
+        // DEFAULT_BASE_URL, so it is not overridable.
+        function updateCustomProviderField(id, field, value) {
+            const custom = customProviderById(id);
+            if (custom) {
+                custom[field] = value;
+                return;
+            }
+
+            // Built-in provider: record a saved override.
+            if (field === 'base_url' && id === 'openai') {
+                // DEFAULT_BASE_URL is the single source of truth for the
+                // OpenAI-compatible endpoint.
+                const input = document.getElementById('env-default-base-url');
+                if (input) input.value = value;
+                return;
+            }
+            const override = envProviderOverrides[id] || {};
             if (field === 'label') {
-                // Derive the provider id from the label so it stays readable
-                // (e.g. "My Gateway" -> "my-gateway").
-                const taken = takenProviderIds();
-                if (p.origId) taken.delete(p.origId);
-                envCustomProviders.forEach((other, i) => { if (i !== index) taken.add(other.id); });
-                const previousId = p.id;
-                const id = uniqueProviderId(p.label || 'custom-provider', taken);
-                p.id = id;
-                // Keep the provider order pointing at the (possibly new) id.
-                if (previousId && previousId !== id) {
-                    const pos = envProviderOrder.indexOf(previousId);
-                    if (pos >= 0) envProviderOrder[pos] = id;
-                }
-                const idEl = document.querySelector(`#env-custom-providers .custom-provider-id[data-index="${index}"]`);
-                if (idEl) idEl.textContent = `id: ${id}`;
+                override.label = value;
+            } else {
+                override.base_url = value;
+            }
+            if (!override.label && !override.base_url) {
+                delete envProviderOverrides[id];
+            } else {
+                envProviderOverrides[id] = override;
             }
         }
 
-        // Ordered provider list shown in the Settings "Provider Order" card.
-        function orderedProviderEntries() {
-            const byId = new Map(PROVIDER_CATALOG.map(p => [p.id, p]));
-            const entries = [];
-            const seen = new Set();
-            envProviderOrder.forEach(id => {
-                if (byId.has(id) && !seen.has(id)) {
-                    entries.push(byId.get(id));
-                    seen.add(id);
-                }
-            });
-            PROVIDER_CATALOG.forEach(p => {
-                if (!seen.has(p.id)) { entries.push(p); seen.add(p.id); }
-            });
-            return entries;
+        // Once a custom provider's label is final, derive its id from it so it
+        // stays readable (e.g. "My Gateway" -> "my-gateway"). Done on blur so
+        // the list is not re-rendered (and focus lost) while typing.
+        function commitCustomProviderLabel(id) {
+            const custom = customProviderById(id);
+            if (!custom) return;
+            const taken = takenProviderIds();
+            if (custom.origId) taken.delete(custom.origId);
+            envCustomProviders.forEach(other => { if (other.id !== custom.id) taken.add(other.id); });
+            const previousId = custom.id;
+            const newId = uniqueProviderId(custom.label || 'custom-provider', taken);
+            if (newId === previousId) return;
+            custom.id = newId;
+            const pos = envProviderOrder.indexOf(previousId);
+            if (pos >= 0) envProviderOrder[pos] = newId;
+            // Keep the row open in the editor under its new id.
+            if (envEditingProviderId === previousId) envEditingProviderId = newId;
+            // Update the row in place — a full re-render would destroy the input
+            // the user is moving to and lose their focus.
+            const row = document.querySelector(`#env-provider-order .provider-order-item[data-id="${previousId}"]`);
+            if (row) {
+                row.dataset.id = newId;
+                row.querySelectorAll('.po-label-input, .po-url-input').forEach(input => {
+                    input.dataset.id = newId;
+                });
+            }
         }
 
-        function renderProviderOrderList() {
-            const box = document.getElementById('env-provider-order');
-            if (!box) return;
-            const entries = orderedProviderEntries();
-            box.innerHTML = entries.map(p => `
-                <div class="provider-order-item" draggable="true" data-id="${esc(p.id)}">
-                    <span class="drag-handle" title="Drag to reorder">⠿</span>
-                    <span class="po-label">${esc(p.label)}</span>
-                    ${p.custom ? '<span class="po-badge">custom</span>' : ''}
-                    <button type="button" class="icon-btn" title="Move up" onclick="moveProviderInOrder('${esc(p.id)}', -1)">↑</button>
-                    <button type="button" class="icon-btn" title="Move down" onclick="moveProviderInOrder('${esc(p.id)}', 1)">↓</button>
-                </div>
-            `).join('');
-            attachProviderOrderDnD(box);
+        function attachProviderFieldHandlers(box) {
+            box.querySelectorAll('.po-label-input, .po-url-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const id = input.dataset.id;
+                    const field = input.classList.contains('po-label-input') ? 'label' : 'base_url';
+                    updateCustomProviderField(id, field, input.value);
+                });
+                input.addEventListener('blur', () => {
+                    if (input.classList.contains('po-label-input')) {
+                        commitCustomProviderLabel(input.dataset.id);
+                    }
+                });
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        input.blur();
+                        finishEditingProvider(input.dataset.id);
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        finishEditingProvider(input.dataset.id);
+                    }
+                });
+            });
+        }
+
+        // Apply a new order for the visible providers while keeping removed
+        // providers in their existing slots so restoring puts them back.
+        function applyVisibleOrder(newVisibleIds) {
+            const full = orderedProviderEntries();
+            let cursor = 0;
+            envProviderOrder = full.map(entry => {
+                if (isRemovedProvider(entry.id)) return entry.id;
+                const next = newVisibleIds[cursor];
+                cursor += 1;
+                return next;
+            });
+            renderCustomProviderRows();
         }
 
         function moveProviderInOrder(id, delta) {
-            const entries = orderedProviderEntries();
-            const idx = entries.findIndex(p => p.id === id);
+            const visible = orderedProviderEntries().filter(p => !isRemovedProvider(p.id));
+            const idx = visible.findIndex(p => p.id === id);
             if (idx < 0) return;
             const target = idx + delta;
-            if (target < 0 || target >= entries.length) return;
-            const [moved] = entries.splice(idx, 1);
-            entries.splice(target, 0, moved);
-            envProviderOrder = entries.map(p => p.id);
-            renderProviderOrderList();
+            if (target < 0 || target >= visible.length) return;
+            const [moved] = visible.splice(idx, 1);
+            visible.splice(target, 0, moved);
+            applyVisibleOrder(visible.map(p => p.id));
         }
 
         function resetProviderOrder() {
-            envProviderOrder = PROVIDER_CATALOG.map(p => p.id);
-            renderProviderOrderList();
+            envProviderOrder = envAllProviders.map(p => p.id);
+            renderCustomProviderRows();
         }
 
         function attachProviderOrderDnD(box) {
@@ -4053,14 +4225,13 @@ func main() {
                     item.classList.remove('drag-over');
                     const targetId = item.dataset.id;
                     if (!dragId || dragId === targetId) return;
-                    const entries = orderedProviderEntries();
-                    const from = entries.findIndex(p => p.id === dragId);
-                    const to = entries.findIndex(p => p.id === targetId);
+                    const visible = orderedProviderEntries().filter(p => !isRemovedProvider(p.id));
+                    const from = visible.findIndex(p => p.id === dragId);
+                    const to = visible.findIndex(p => p.id === targetId);
                     if (from < 0 || to < 0) return;
-                    const [moved] = entries.splice(from, 1);
-                    entries.splice(to, 0, moved);
-                    envProviderOrder = entries.map(p => p.id);
-                    renderProviderOrderList();
+                    const [moved] = visible.splice(from, 1);
+                    visible.splice(to, 0, moved);
+                    applyVisibleOrder(visible.map(p => p.id));
                 });
             });
         }
@@ -4082,12 +4253,23 @@ func main() {
                         envCustomProviders = data.custom_providers.map(p => ({
                             id: p.id, origId: p.id, label: p.label, base_url: p.base_url
                         }));
+                        envRemovedCustoms = new Set();
                     }
-                    if (Array.isArray(data.providers) && data.providers.length) {
-                        envProviderOrder = data.providers.map(p => p.id);
+                    if (Array.isArray(data.all_providers) && data.all_providers.length) {
+                        envAllProviders = data.all_providers;
+                    } else if (Array.isArray(data.providers)) {
+                        envAllProviders = data.providers;
+                    }
+                    if (Array.isArray(data.provider_order)) {
+                        envProviderOrder = data.provider_order.slice();
+                    }
+                    if (Array.isArray(data.hidden_providers)) {
+                        envHiddenProviders = data.hidden_providers.slice();
+                    }
+                    if (data.provider_overrides && typeof data.provider_overrides === 'object') {
+                        envProviderOverrides = JSON.parse(JSON.stringify(data.provider_overrides));
                     }
                     renderCustomProviderRows();
-                    renderProviderOrderList();
                 } catch (e) {}
             })();
             return envSettingsLoad;
@@ -4095,6 +4277,8 @@ func main() {
 
         async function saveEnvSettings() {
             await envSettingsLoad;
+            // Commit any pending custom-provider label so the saved id matches.
+            envCustomProviders.forEach(p => commitCustomProviderLabel(p.id));
             const btn = document.getElementById('env-save-btn');
             const status = document.getElementById('env-save-status');
             const default_base_url = document.getElementById('env-default-base-url').value.trim();
@@ -4103,6 +4287,12 @@ func main() {
                 .filter(p => p.label.trim() && p.base_url.trim())
                 .map(p => ({ id: p.id, label: p.label.trim(), base_url: p.base_url.trim() }));
             const provider_order = envProviderOrder.slice();
+            const hidden_providers = envHiddenProviders.slice();
+            const provider_overrides = {};
+            Object.keys(envProviderOverrides).forEach(id => {
+                const ov = envProviderOverrides[id] || {};
+                if (ov.label || ov.base_url) provider_overrides[id] = { ...ov };
+            });
 
             if (btn) btn.disabled = true;
             if (status) status.textContent = 'Saving…';
@@ -4110,7 +4300,11 @@ func main() {
                 const res = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ default_base_url, default_provider, custom_providers, provider_order })
+                    body: JSON.stringify({
+                        default_base_url, default_provider,
+                        custom_providers, provider_order, hidden_providers,
+                        provider_overrides
+                    })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Failed to save');
@@ -4124,16 +4318,25 @@ func main() {
                     updateComparePlaceholders('a');
                     updateComparePlaceholders('b');
                 }
+                if (Array.isArray(data.all_providers) && data.all_providers.length) {
+                    envAllProviders = data.all_providers;
+                }
                 if (Array.isArray(data.custom_providers)) {
                     envCustomProviders = data.custom_providers.map(p => ({
                         id: p.id, origId: p.id, label: p.label, base_url: p.base_url
                     }));
+                    envRemovedCustoms = new Set();
                 }
                 if (Array.isArray(data.provider_order)) {
                     envProviderOrder = data.provider_order.slice();
                 }
+                if (Array.isArray(data.hidden_providers)) {
+                    envHiddenProviders = data.hidden_providers.slice();
+                }
+                if (data.provider_overrides && typeof data.provider_overrides === 'object') {
+                    envProviderOverrides = JSON.parse(JSON.stringify(data.provider_overrides));
+                }
                 renderCustomProviderRows();
-                renderProviderOrderList();
 
                 toast('Settings saved to .env!', 'success');
                 if (status) status.textContent = 'Saved!';
