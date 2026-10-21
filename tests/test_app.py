@@ -1107,6 +1107,35 @@ class ProviderEditTests(unittest.TestCase):
         self.assertEqual(entry['base_url'], 'https://new.myllm.com/v1')
 
 
+class ListerComparerUiTests(unittest.TestCase):
+    """UI-level behaviour of the Model Lister and Model Comparer."""
+
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_generation_presets_removed(self):
+        html = self.client.get('/').get_data(as_text=True)
+        for label in ('Strict (JSON/Code)', 'Deep Reasoning', 'applyGenPreset'):
+            self.assertNotIn(label, html, f'"{label}" should be removed from the Model Lister')
+        # The Balanced / Creative preset buttons are gone as well
+        self.assertNotIn("applyGenPreset('balanced')", html)
+        self.assertNotIn("applyGenPreset('creative')", html)
+        self.assertNotIn("applyGenPreset('strict')", html)
+        self.assertNotIn("applyGenPreset('reasoning')", html)
+        # Unrelated prompt-library templates that mention "Strict" are kept
+        self.assertIn('Strict Code Reviewer', html)
+
+    def test_comparer_free_filter_enabled_by_default(self):
+        html = self.client.get('/').get_data(as_text=True)
+        self.assertIn('id="compare-filter-free" onchange="filterCompareModels()" checked', html)
+
+    def test_lister_reset_hook_present(self):
+        html = self.client.get('/').get_data(as_text=True)
+        self.assertIn('function resetListerState()', html)
+        # Called when the model list is (re)loaded and on page load
+        self.assertGreaterEqual(html.count('resetListerState();'), 2)
+
+
 class VersionTests(unittest.TestCase):
     def test_clean_version(self):
         self.assertEqual(app_module._clean_version('3.5.7\n'), '3.5.7')
