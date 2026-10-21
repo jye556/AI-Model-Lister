@@ -44,13 +44,15 @@ List models per provider, run batch tests with live token streaming, measure lat
 ### Comparison & export
 - Search/filter, sortable results, side-by-side comparison of selected models
 - **Two-provider availability comparison** — shared, only-A, only-B by exact model ID
+- **Free models by default** — the comparison starts filtered to free models; untick **🆓 Free only** to show every model
 - **Markdown / CSV / JSON export** of test results (includes benchmark tables, token counts, and cost)
 
 ### UX
 - Light/dark theme toggle, toast notifications, `Ctrl+Enter` to run a test
 - Checked-model selection remembered per provider in `localStorage`
-- Prompt presets and settings remembered in `localStorage`
+- Prompt presets and connection settings (provider, base URL, timeout, headers) remembered in `localStorage`
 - **Settings tab** — edit and save `DEFAULT_BASE_URL` and `DEFAULT_PROVIDER` directly to `.env` from the web UI
+- **Clean Model Lister runs** — the Lister resets its checked models, previous results, search/filter and test parameters whenever you list models or refresh the page, so a stale run never bleeds into a new one
 - **Combined Server Environment panel** — defaults, custom providers and provider order live in one Settings card
 - **Custom providers** — add your own OpenAI-compatible endpoints (name + base URL) from the web UI; saved to `CUSTOM_PROVIDERS` in `.env`
 - **User-defined provider order** — sort providers (drag or ▲/▼) to control the order of the Model Lister and Model Comparer provider dropdowns; saved to `PROVIDER_ORDER` in `.env`

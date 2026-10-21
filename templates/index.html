@@ -996,7 +996,7 @@
                         <div class="prompt-bar" style="margin-top:16px">
                             <input type="text" id="compare-search" placeholder="Search comparison models... (keyword search, e.g. 'free')" oninput="filterCompareModels()">
                             <label class="duration-group" title="Show only free models (name contains 'free')">
-                                <input type="checkbox" id="compare-filter-free" onchange="filterCompareModels()"> 🆓 Free only
+                                <input type="checkbox" id="compare-filter-free" onchange="filterCompareModels()" checked> 🆓 Free only
                             </label>
                         </div>
                         <div id="compare-result"></div>
@@ -1930,6 +1930,10 @@
             currentHeaders = headers;
             currentTimeout = timeout;
 
+            // Start from a clean slate so a previous run's selections and
+            // results never carry over into the new listing.
+            resetListerState();
+
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = '<p>Loading models...</p>';
 
@@ -1974,13 +1978,6 @@
                         <button type="button" class="icon-btn" style="padding:2px 8px; font-size:12px;" onclick="openTemplatesModal('lister')">📚 Prompt Library</button>
                         <select id="prompt-presets" class="preset-select" onchange="applyPreset()"></select>
                     </div>
-                </div>
-                <div class="gen-presets-bar" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-                    <span style="font-size:11px; font-weight:600; color:var(--muted); align-self:center;">Presets:</span>
-                    <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="applyGenPreset('strict')">🎯 Strict (JSON/Code)</button>
-                    <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="applyGenPreset('balanced')">🎨 Balanced</button>
-                    <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="applyGenPreset('reasoning')">🧠 Deep Reasoning</button>
-                    <button type="button" class="icon-btn" style="padding:2px 8px; font-size:11px;" onclick="applyGenPreset('creative')">🎲 Creative</button>
                 </div>
                 <textarea id="batch-prompt" oninput="updatePromptEstimator(); detectPromptVariables();"  rows="3" placeholder="Enter a prompt to test selected models..." oninput="updatePromptEstimator()">Hello!</textarea>
                 <div class="prompt-estimator" id="prompt-estimator"></div>
@@ -3753,6 +3750,78 @@ func main() {
             return `model-lister:checked:${currentProvider}:${currentBaseUrl || PROVIDER_DEFAULTS[currentProvider] || 'default'}`;
         }
 
+        // Default values of the Lister test panel, used when resetting.
+        const LISTER_DEFAULTS = {
+            'batch-delay': '2',
+            'batch-concurrency': '1',
+            'batch-max-tokens': '300',
+            'batch-temperature': '0.7',
+            'batch-top-p': '1.0',
+            'batch-frequency-penalty': '0.0',
+            'batch-presence-penalty': '0.0',
+            'batch-system': '',
+            'batch-prompt': 'Hello!'
+        };
+
+        // Reset the Model Lister to a clean state: no checked models, no previous
+        // test results and no leftover search/filter. Called when the model list
+        // is (re)loaded and on page load, so a stale run never bleeds into a new
+        // one. The connection settings (provider, base URL, API key, timeout,
+        // headers) are intentionally kept.
+        function resetListerState() {
+            // Drop every persisted checked-model and result entry, not just the
+            // current provider's, so nothing is restored later.
+            try {
+                const stale = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && (k.startsWith('model-lister:checked:') || k.startsWith('model-lister:results:'))) {
+                        stale.push(k);
+                    }
+                }
+                stale.forEach(k => localStorage.removeItem(k));
+            } catch (e) {}
+
+            testResults = [];
+            currentModels = [];
+
+            // Drop the run-scoped settings too, so the saved prompt and
+            // generation parameters are not re-applied to the fresh listing.
+            // The connection settings (provider, base URL, timeout, headers)
+            // are deliberately kept.
+            const RUN_SCOPED_KEYS = ['delay', 'concurrency', 'prompt', 'max_tokens',
+                'temperature', 'top_p', 'frequency_penalty', 'presence_penalty',
+                'system', 'stream', 'advanced'];
+            if (pendingSettings) {
+                RUN_SCOPED_KEYS.forEach(k => { delete pendingSettings[k]; });
+            }
+            // Also purge them from the persisted settings so a refresh alone
+            // leaves nothing stale behind.
+            try {
+                const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+                if (stored) {
+                    RUN_SCOPED_KEYS.forEach(k => { delete stored[k]; });
+                    localStorage.setItem(SETTINGS_KEY, JSON.stringify(stored));
+                }
+            } catch (e) {}
+
+            // Reset the search / free-only filter controls.
+            const search = document.getElementById('model-search');
+            if (search) search.value = '';
+            const freeOnly = document.getElementById('model-filter-free');
+            if (freeOnly) freeOnly.checked = false;
+
+            // Reset the test panel inputs to their defaults.
+            Object.keys(LISTER_DEFAULTS).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = LISTER_DEFAULTS[id];
+            });
+            const stream = document.getElementById('batch-stream');
+            if (stream) stream.checked = true;
+            document.getElementById('advanced-row')?.classList.remove('open');
+            updatePromptEstimator();
+        }
+
         function saveChecked() {
             const sel = [];
             document.querySelectorAll('.model-check:checked').forEach(cb => {
@@ -4369,6 +4438,8 @@ func main() {
         // Init
         loadTheme();
         loadSettings();
+        // A page refresh starts from a clean Model Lister.
+        resetListerState();
         if (!pendingSettings?.base_url) {
             updateProviderUI();
         } else {
@@ -4763,29 +4834,6 @@ func main() {
             return text.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, varName) => {
                 return promptVariableValues[varName] !== undefined ? promptVariableValues[varName] : match;
             });
-        }
-
-        // ---------------- 2. Generation Parameter Presets ----------------
-        function applyGenPreset(preset) {
-            const tempEl = document.getElementById('batch-temp');
-            const topPEl = document.getElementById('batch-top-p');
-            const freqEl = document.getElementById('batch-freq-penalty');
-            const presEl = document.getElementById('batch-pres-penalty');
-
-            const presets = {
-                strict: { temp: 0.0, topP: 1.0, freq: 0.0, pres: 0.0, name: '🎯 Strict (Deterministic)' },
-                balanced: { temp: 0.7, topP: 0.95, freq: 0.1, pres: 0.1, name: '🎨 Balanced' },
-                reasoning: { temp: 0.2, topP: 0.9, freq: 0.0, pres: 0.0, name: '🧠 Deep Reasoning / Code' },
-                creative: { temp: 1.1, topP: 0.98, freq: 0.3, pres: 0.3, name: '🎲 Creative' }
-            };
-
-            const cfg = presets[preset] || presets.balanced;
-            if (tempEl) { tempEl.value = cfg.temp; document.getElementById('batch-temp-val')?.replaceChildren(cfg.temp); }
-            if (topPEl) { topPEl.value = cfg.topP; document.getElementById('batch-top-p-val')?.replaceChildren(cfg.topP); }
-            if (freqEl) { freqEl.value = cfg.freq; document.getElementById('batch-freq-penalty-val')?.replaceChildren(cfg.freq); }
-            if (presEl) { presEl.value = cfg.pres; document.getElementById('batch-pres-penalty-val')?.replaceChildren(cfg.pres); }
-
-            toast(`Applied preset: ${cfg.name}`, 'info');
         }
 
 
