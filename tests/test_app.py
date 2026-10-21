@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -629,6 +630,188 @@ class SettingsApiTests(unittest.TestCase):
             app_module.DEFAULT_PROVIDER = orig_prov
             app_module.PROVIDER_BASE_URLS['openai'] = orig_base
             shutil.rmtree(temp_dir)
+
+
+class CustomProviderTests(unittest.TestCase):
+    """Custom (user-defined) providers and user-defined provider ordering."""
+
+    def setUp(self):
+        self.client = app.test_client()
+        self.temp_dir = tempfile.mkdtemp()
+        self.env_file = os.path.join(self.temp_dir, '.env')
+        self.orig_base = app_module.DEFAULT_BASE_URL
+        self.orig_prov = app_module.DEFAULT_PROVIDER
+        self.orig_env = {k: os.environ.get(k) for k in (
+            'DEFAULT_BASE_URL', 'DEFAULT_PROVIDER',
+            app_module.CUSTOM_PROVIDERS_ENV_KEY, app_module.PROVIDER_ORDER_ENV_KEY)}
+        self._patch = mock.patch.object(app_module, 'APP_DIR', self.temp_dir)
+        self._patch.start()
+        self._write_env('')
+
+    def tearDown(self):
+        self._patch.stop()
+        for k, v in self.orig_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        app_module.DEFAULT_BASE_URL = self.orig_base
+        app_module.DEFAULT_PROVIDER = self.orig_prov
+        app_module.PROVIDER_BASE_URLS['openai'] = self.orig_base
+        app_module._ENV_FILE_CACHE.update({'path': None, 'mtime': None, 'values': {}})
+        shutil.rmtree(self.temp_dir)
+
+    def _write_env(self, extra):
+        with open(self.env_file, 'w', encoding='utf-8') as f:
+            f.write('DEFAULT_BASE_URL=https://api.openai.com/v1\n')
+            f.write('DEFAULT_PROVIDER=openai\n')
+            if extra:
+                f.write(extra + '\n')
+
+    def test_get_settings_returns_catalog(self):
+        resp = self.client.get('/api/settings')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn('custom_providers', data)
+        self.assertIn('provider_order', data)
+        self.assertIn('providers', data)
+        ids = [p['id'] for p in data['providers']]
+        self.assertIn('openai', ids)
+        self.assertIn('claude', ids)
+
+    def test_save_custom_providers(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': '', 'label': 'My LLM', 'base_url': 'https://api.myllm.com/v1'},
+                {'id': 'local-thing', 'label': 'Local Thing', 'base_url': 'http://localhost:9000/v1'},
+            ],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(len(data['custom_providers']), 2)
+        self.assertEqual(data['custom_providers'][0]['id'], 'my-llm')
+        self.assertEqual(data['custom_providers'][1]['id'], 'local-thing')
+        # Persisted to the .env file
+        with open(self.env_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn(app_module.CUSTOM_PROVIDERS_ENV_KEY + '=', content)
+        self.assertIn('my-llm', content)
+        # And readable back through the API
+        again = self.client.get('/api/settings').get_json()
+        self.assertEqual(len(again['custom_providers']), 2)
+
+    def test_custom_provider_appears_in_catalog(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'my-llm', 'label': 'My LLM', 'base_url': 'https://api.myllm.com/v1'},
+            ],
+        })
+        catalog = self.client.get('/api/settings').get_json()['providers']
+        entry = next(p for p in catalog if p['id'] == 'my-llm')
+        self.assertTrue(entry['custom'])
+        self.assertEqual(entry['label'], 'My LLM')
+        self.assertEqual(entry['base_url'], 'https://api.myllm.com/v1')
+
+    def test_provider_order_is_applied(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_order': ['claude', 'openai'],
+        })
+        self.assertEqual(resp.status_code, 200)
+        catalog = resp.get_json()['providers']
+        ids = [p['id'] for p in catalog]
+        self.assertEqual(ids[0], 'claude')
+        self.assertEqual(ids[1], 'openai')
+        # Unlisted providers keep their default relative order at the end.
+        self.assertEqual(ids[2:], ['openrouter', 'azure', 'ollama', 'lmstudio', 'vllm',
+                                   'localai', 'jan', 'deepseek', 'mistral', 'groq',
+                                   'together', 'xai', 'gemini', 'nvidia', 'bedrock',
+                                   'vertex'])
+
+    def test_provider_order_persisted_to_env(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_order': ['claude', 'gemini'],
+        })
+        with open(self.env_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        self.assertIn(f"{app_module.PROVIDER_ORDER_ENV_KEY}=claude,gemini", content)
+        self.assertEqual(app_module.get_provider_order(), ['claude', 'gemini'])
+
+    def test_default_provider_accepts_custom_provider(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'my-llm',
+            'custom_providers': [
+                {'id': 'my-llm', 'label': 'My LLM', 'base_url': 'https://api.myllm.com/v1'},
+            ],
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['default_provider'], 'my-llm')
+
+    def test_invalid_custom_provider_is_dropped(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'ok', 'label': 'OK', 'base_url': 'https://ok.example.com/v1'},
+                {'id': 'no-label', 'label': '', 'base_url': 'https://x.example.com/v1'},
+                {'id': 'no-url', 'label': 'No URL', 'base_url': ''},
+                {'id': 'bad-url', 'label': 'Bad URL', 'base_url': 'not-a-url'},
+            ],
+        })
+        self.assertEqual(resp.status_code, 200)
+        customs = resp.get_json()['custom_providers']
+        self.assertEqual([c['id'] for c in customs], ['ok'])
+
+    def test_custom_provider_id_cannot_shadow_builtin(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'openai', 'label': 'Shadow', 'base_url': 'https://shadow.example.com/v1'},
+            ],
+        })
+        customs = resp.get_json()['custom_providers']
+        self.assertEqual(len(customs), 1)
+        self.assertNotEqual(customs[0]['id'], 'openai')
+
+    def test_order_drops_unknown_providers(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_order': ['claude', 'does-not-exist', 'gemini', 'claude'],
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['provider_order'], ['claude', 'gemini'])
+
+    def test_custom_provider_base_url_resolved(self):
+        self._write_env(
+            'CUSTOM_PROVIDERS=[{"id":"my-llm","label":"My LLM","base_url":"https://api.myllm.com/v1"}]')
+        self.assertEqual(app_module.get_base_url('my-llm', ''), 'https://api.myllm.com/v1')
+        # An explicit base URL still wins
+        self.assertEqual(app_module.get_base_url('my-llm', 'https://other/v1'), 'https://other/v1')
+
+    def test_compact_custom_providers_format(self):
+        self._write_env('CUSTOM_PROVIDERS=my-llm|My LLM|https://api.myllm.com/v1')
+        customs = app_module.get_custom_providers()
+        self.assertEqual(len(customs), 1)
+        self.assertEqual(customs[0]['id'], 'my-llm')
+        self.assertEqual(customs[0]['label'], 'My LLM')
+        self.assertEqual(customs[0]['base_url'], 'https://api.myllm.com/v1')
+
+    def test_index_renders_custom_provider_in_lister(self):
+        self._write_env(
+            'CUSTOM_PROVIDERS=[{"id":"my-llm","label":"My LLM","base_url":"https://api.myllm.com/v1"}]')
+        html = self.client.get('/').get_data(as_text=True)
+        self.assertIn('My LLM (custom)', html)
+        self.assertIn('value="my-llm"', html)
 
 
 class VersionTests(unittest.TestCase):

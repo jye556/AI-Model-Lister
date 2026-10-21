@@ -51,6 +51,8 @@ List models per provider, run batch tests with live token streaming, measure lat
 - Checked-model selection remembered per provider in `localStorage`
 - Prompt presets and settings remembered in `localStorage`
 - **Settings tab** — edit and save `DEFAULT_BASE_URL` and `DEFAULT_PROVIDER` directly to `.env` from the web UI
+- **Custom providers** — add your own OpenAI-compatible endpoints (name + base URL) from the web UI; saved to `CUSTOM_PROVIDERS` in `.env`
+- **User-defined provider order** — sort providers (drag or ▲/▼) to control the order of the Model Lister and Model Comparer provider dropdowns; saved to `PROVIDER_ORDER` in `.env`
 - Extra custom headers (e.g. OpenRouter's `HTTP-Referer`) and a configurable request timeout
 
 ### Operations
@@ -117,6 +119,17 @@ All settings are optional environment variables (can also be configured via `.en
 |---|---|---|
 | `DEFAULT_BASE_URL` | `https://api.openai.com/v1` | Default OpenAI-compatible endpoint |
 | `DEFAULT_PROVIDER` | `openai` | Provider selected on first load |
+| `CUSTOM_PROVIDERS` | *(empty)* | User-defined providers as a JSON array of `{"id", "label", "base_url"}` objects (the compact `id\|label\|base_url;…` form is also accepted) |
+| `PROVIDER_ORDER` | *(empty)* | Comma-separated provider ids defining the order of the provider dropdowns; unlisted providers keep their default order |
+
+`CUSTOM_PROVIDERS` and `PROVIDER_ORDER` are managed from **Settings → Server Environment** in the web UI, and take effect immediately in the **Model Lister** and **Model Comparer** provider dropdowns.
+
+```env
+DEFAULT_BASE_URL=https://api.openai.com/v1
+DEFAULT_PROVIDER=openai
+CUSTOM_PROVIDERS=[{"id":"my-llm","label":"My LLM","base_url":"https://api.example.com/v1"}]
+PROVIDER_ORDER=my-llm,openai,openrouter
+```
 
 ---
 
@@ -140,7 +153,7 @@ Notes:
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/` | The web UI |
-| `GET` / `POST` | `/api/settings` | Get or update `.env` configuration |
+| `GET` / `POST` | `/api/settings` | Get or update `.env` configuration (defaults, `custom_providers`, `provider_order`) |
 | `POST` | `/list-models` | List models for a provider |
 | `POST` | `/test-model` | Run one model test (returns response + TTFT + usage as JSON) |
 | `POST` | `/test-model-stream` | Live-stream a model test as SSE (`ttft` / `delta` / `usage` / `retry` / `done`) |
