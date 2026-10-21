@@ -244,21 +244,141 @@ def get_provider_order():
     return order
 
 
-def build_provider_catalog():
+def normalize_provider_overrides(raw_items):
+    """Validate user supplied per-provider label / base URL overrides.
+
+    Returns a dict keyed by provider id. Entries that only repeat the built-in
+    defaults are dropped so the .env file stays free of redundant values.
+    """
+    overrides = {}
+    if not isinstance(raw_items, dict):
+        return overrides
+    for pid, entry in raw_items.items():
+        if not isinstance(entry, dict):
+            continue
+        pid = str(pid).strip()
+        if not pid:
+            continue
+        label = str(entry.get('label', '')).strip()
+        base_url = str(entry.get('base_url', '')).strip()
+        if base_url and not base_url.lower().startswith(('http://', 'https://')):
+            base_url = ''
+        if pid == 'openai':
+            # The openai provider's base URL is DEFAULT_BASE_URL — single source
+            # of truth — so only a label override is accepted for it.
+            base_url = ''
+        parsed = {}
+        if label and label != PROVIDER_LABELS.get(pid):
+            parsed['label'] = label
+        if base_url and base_url.rstrip('/') != (PROVIDER_BASE_URLS.get(pid) or '').rstrip('/'):
+            parsed['base_url'] = base_url
+        if parsed:
+            overrides[pid] = parsed
+    return overrides
+
+
+def get_hidden_providers():
+    """Return the ids of built-in providers the user removed from the lists."""
+    raw = _read_env_value(HIDDEN_PROVIDERS_ENV_KEY)
+    seen = set()
+    hidden = []
+    for pid in (p.strip() for p in raw.split(',')):
+        if pid and pid not in seen:
+            seen.add(pid)
+            hidden.append(pid)
+    return hidden
+
+
+def get_provider_overrides():
+    """Return the per-provider label / base URL overrides for saved providers.
+
+    Stored as a JSON object keyed by provider id, e.g.
+    ``{"claude": {"label": "Claude (EU)", "base_url": "https://..."}}``.
+    """
+    raw = _read_env_value(PROVIDER_OVERRIDES_ENV_KEY)
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    overrides = {}
+    for pid, entry in data.items():
+        if not isinstance(entry, dict):
+            continue
+        pid = str(pid).strip()
+        if not pid:
+            continue
+        parsed = {}
+        label = str(entry.get('label', '')).strip()
+        base_url = str(entry.get('base_url', '')).strip()
+        if label:
+            parsed['label'] = label
+        if base_url:
+            parsed['base_url'] = base_url
+        if parsed:
+            overrides[pid] = parsed
+    return overrides
+
+
+def get_provider_label(provider, overrides=None):
+    """Return the display label of a provider, honouring any saved override."""
+    if overrides is None:
+        overrides = get_provider_overrides()
+    override = overrides.get(provider)
+    if override and override.get('label'):
+        return override['label']
+    return PROVIDER_LABELS.get(provider, provider)
+
+
+def get_provider_base_url(provider, overrides=None):
+    """Return the configured base URL of a provider, honouring any saved override.
+
+    The ``openai`` provider is special: its base URL always comes from
+    ``DEFAULT_BASE_URL`` so there is a single source of truth for it.
+    """
+    if overrides is None:
+        overrides = get_provider_overrides()
+    if provider == 'openai':
+        return get_default_base_url()
+    override = overrides.get(provider)
+    if override and override.get('base_url'):
+        return override['base_url'].rstrip('/')
+    base = PROVIDER_BASE_URLS.get(provider)
+    if base:
+        return base
+    for entry in get_custom_providers():
+        if entry['id'] == provider:
+            return entry['base_url'].rstrip('/')
+    return get_default_base_url()
+
+
+def build_provider_catalog(include_hidden=False):
     """Return every provider (built-in + custom) in the user defined order.
 
-    Each entry is ``{'id', 'label', 'base_url', 'custom'}``. Providers that the
-    user has not positioned keep their default relative order and are appended.
+    Each entry is ``{'id', 'label', 'base_url', 'custom', 'hidden'}``. Providers
+    that the user has not positioned keep their default relative order and are
+    appended. Built-in providers the user removed are skipped unless
+    ``include_hidden``. Saved label / base URL overrides are applied.
     """
     customs = get_custom_providers()
+    hidden = set(get_hidden_providers())
+    overrides = get_provider_overrides()
     entries = []
-    for pid, label in PROVIDER_LABELS.items():
-        base_url = get_default_base_url() if pid == 'openai' else PROVIDER_BASE_URLS.get(pid, '')
-        entries.append({'id': pid, 'label': label,
-                        'base_url': base_url, 'custom': False})
+    for pid in PROVIDER_LABELS:
+        if pid in hidden and not include_hidden:
+            continue
+        entries.append({'id': pid, 'label': get_provider_label(pid, overrides),
+                        'base_url': get_provider_base_url(pid, overrides), 'custom': False,
+                        'hidden': pid in hidden})
     for entry in customs:
-        entries.append({'id': entry['id'], 'label': entry['label'],
-                        'base_url': entry['base_url'], 'custom': True})
+        override = overrides.get(entry['id'], {})
+        entries.append({'id': entry['id'],
+                        'label': override.get('label') or entry['label'],
+                        'base_url': override.get('base_url') or entry['base_url'],
+                        'custom': True, 'hidden': False})
 
     order = get_provider_order()
     if order:
@@ -307,6 +427,10 @@ LOCAL_PROVIDER_IDS = ('ollama', 'lmstudio', 'vllm', 'localai', 'jan')
 # .env keys holding user-defined providers and the user-defined provider order.
 CUSTOM_PROVIDERS_ENV_KEY = 'CUSTOM_PROVIDERS'
 PROVIDER_ORDER_ENV_KEY = 'PROVIDER_ORDER'
+# Built-in providers the user removed from the provider lists.
+HIDDEN_PROVIDERS_ENV_KEY = 'HIDDEN_PROVIDERS'
+# Per-provider label / base URL overrides for saved providers.
+PROVIDER_OVERRIDES_ENV_KEY = 'PROVIDER_OVERRIDES'
 
 # Ids accepted for a custom provider entry.
 CUSTOM_PROVIDER_ID_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*$')
@@ -456,15 +580,7 @@ def get_base_url(provider, custom_base_url):
     """Return the correct base URL based on provider and custom input"""
     if custom_base_url:
         return custom_base_url.rstrip('/')
-    if provider == 'openai':
-        return get_default_base_url()
-    base = PROVIDER_BASE_URLS.get(provider)
-    if base:
-        return base
-    for entry in get_custom_providers():
-        if entry['id'] == provider:
-            return entry['base_url'].rstrip('/')
-    return get_default_base_url()
+    return get_provider_base_url(provider) or get_default_base_url()
 
 
 def auth_headers(provider, api_key):
@@ -1272,7 +1388,10 @@ def manage_settings():
             'default_provider': env_vars.get('DEFAULT_PROVIDER', os.environ.get('DEFAULT_PROVIDER', 'openai')),
             'custom_providers': custom_providers,
             'provider_order': get_provider_order(),
+            'hidden_providers': get_hidden_providers(),
+            'provider_overrides': get_provider_overrides(),
             'providers': build_provider_catalog(),
+            'all_providers': build_provider_catalog(include_hidden=True),
             'keys': saved_keys
         })
 
@@ -1283,10 +1402,21 @@ def manage_settings():
     keys_to_save = data.get('keys', {})
     custom_providers, id_map = normalize_custom_providers(data.get('custom_providers'))
     provider_order = [str(p).strip() for p in (data.get('provider_order') or []) if str(p).strip()]
+    # Only built-in providers can be hidden; custom ones are deleted outright.
+    hidden_providers = []
+    for pid in (str(p).strip() for p in (data.get('hidden_providers') or [])):
+        if pid in PROVIDER_BASE_URLS and pid not in hidden_providers:
+            hidden_providers.append(pid)
+    # Saved label / base URL overrides for edited providers.
+    provider_overrides = normalize_provider_overrides(data.get('provider_overrides'))
 
     valid_providers = set(PROVIDER_BASE_URLS.keys()) | {c['id'] for c in custom_providers}
-    if new_provider not in valid_providers:
-        new_provider = 'openai'
+    if new_provider not in valid_providers or new_provider in hidden_providers:
+        # Fall back to a provider the user has not removed.
+        new_provider = next(
+            (pid for pid in PROVIDER_BASE_URLS
+             if pid not in hidden_providers and pid not in {c['id'] for c in custom_providers}),
+            'openai')
     # Drop ordering entries that no longer exist and de-duplicate.
     seen_order = set()
     clean_order = []
@@ -1301,6 +1431,8 @@ def manage_settings():
     found_provider = False
     found_custom = False
     found_order = False
+    found_hidden = False
+    found_overrides = False
 
     if os.path.isfile(env_file):
         try:
@@ -1315,6 +1447,8 @@ def manage_settings():
 
     custom_value = json.dumps(custom_providers, separators=(',', ':'))
     order_value = ','.join(clean_order)
+    hidden_value = ','.join(hidden_providers)
+    overrides_value = json.dumps(provider_overrides, separators=(',', ':'))
 
     for line in lines:
         stripped = line.strip()
@@ -1330,6 +1464,12 @@ def manage_settings():
         elif stripped.startswith(f'{PROVIDER_ORDER_ENV_KEY}='):
             new_lines.append(f'{PROVIDER_ORDER_ENV_KEY}={order_value}\n')
             found_order = True
+        elif stripped.startswith(f'{HIDDEN_PROVIDERS_ENV_KEY}='):
+            new_lines.append(f'{HIDDEN_PROVIDERS_ENV_KEY}={hidden_value}\n')
+            found_hidden = True
+        elif stripped.startswith(f'{PROVIDER_OVERRIDES_ENV_KEY}='):
+            new_lines.append(f'{PROVIDER_OVERRIDES_ENV_KEY}={overrides_value}\n')
+            found_overrides = True
         elif '=' in stripped:
             k, _ = stripped.split('=', 1)
             k = k.strip()
@@ -1351,6 +1491,10 @@ def manage_settings():
         new_lines.append(f'{CUSTOM_PROVIDERS_ENV_KEY}={custom_value}\n')
     if not found_order:
         new_lines.append(f'{PROVIDER_ORDER_ENV_KEY}={order_value}\n')
+    if not found_hidden:
+        new_lines.append(f'{HIDDEN_PROVIDERS_ENV_KEY}={hidden_value}\n')
+    if not found_overrides:
+        new_lines.append(f'{PROVIDER_OVERRIDES_ENV_KEY}={overrides_value}\n')
 
     if isinstance(keys_to_save, dict):
         for k, v in keys_to_save.items():
@@ -1372,6 +1516,8 @@ def manage_settings():
     os.environ['DEFAULT_PROVIDER'] = new_provider
     os.environ[CUSTOM_PROVIDERS_ENV_KEY] = custom_value
     os.environ[PROVIDER_ORDER_ENV_KEY] = order_value
+    os.environ[HIDDEN_PROVIDERS_ENV_KEY] = hidden_value
+    os.environ[PROVIDER_OVERRIDES_ENV_KEY] = overrides_value
     DEFAULT_BASE_URL = get_default_base_url()
     DEFAULT_PROVIDER = new_provider
     PROVIDER_BASE_URLS['openai'] = DEFAULT_BASE_URL
@@ -1383,7 +1529,10 @@ def manage_settings():
         'default_provider': new_provider,
         'custom_providers': custom_providers,
         'provider_order': clean_order,
+        'hidden_providers': hidden_providers,
+        'provider_overrides': provider_overrides,
         'providers': build_provider_catalog(),
+        'all_providers': build_provider_catalog(include_hidden=True),
     })
 
 

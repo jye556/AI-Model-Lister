@@ -814,6 +814,299 @@ class CustomProviderTests(unittest.TestCase):
         self.assertIn('value="my-llm"', html)
 
 
+class ProviderRemovalTests(unittest.TestCase):
+    """Removing saved providers: custom ones are deleted, built-ins are hidden."""
+
+    def setUp(self):
+        self.client = app.test_client()
+        self.temp_dir = tempfile.mkdtemp()
+        self.env_file = os.path.join(self.temp_dir, '.env')
+        self.orig_base = app_module.DEFAULT_BASE_URL
+        self.orig_prov = app_module.DEFAULT_PROVIDER
+        self.orig_env = {k: os.environ.get(k) for k in (
+            'DEFAULT_BASE_URL', 'DEFAULT_PROVIDER',
+            app_module.CUSTOM_PROVIDERS_ENV_KEY, app_module.PROVIDER_ORDER_ENV_KEY,
+            app_module.HIDDEN_PROVIDERS_ENV_KEY)}
+        self._patch = mock.patch.object(app_module, 'APP_DIR', self.temp_dir)
+        self._patch.start()
+        self._write_env('')
+
+    def tearDown(self):
+        self._patch.stop()
+        for k, v in self.orig_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        app_module.DEFAULT_BASE_URL = self.orig_base
+        app_module.DEFAULT_PROVIDER = self.orig_prov
+        app_module.PROVIDER_BASE_URLS['openai'] = self.orig_base
+        app_module._ENV_FILE_CACHE.update({'path': None, 'mtime': None, 'values': {}})
+        shutil.rmtree(self.temp_dir)
+
+    def _write_env(self, extra):
+        with open(self.env_file, 'w', encoding='utf-8') as f:
+            f.write('DEFAULT_BASE_URL=https://api.openai.com/v1\n')
+            f.write('DEFAULT_PROVIDER=openai\n')
+            if extra:
+                f.write(extra + '\n')
+
+    def _read_env(self):
+        with open(self.env_file, 'r', encoding='utf-8') as f:
+            return f.read()
+
+    def test_remove_custom_provider_deletes_it(self):
+        # Save a custom provider first
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'my-llm', 'label': 'My LLM', 'base_url': 'https://api.myllm.com/v1'},
+            ],
+        })
+        self.assertIn('my-llm', self._read_env())
+
+        # Removing it (empty list) deletes it
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [],
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['custom_providers'], [])
+        self.assertNotIn('my-llm', self._read_env())
+        # It is gone from the catalog too
+        ids = [p['id'] for p in self.client.get('/api/settings').get_json()['providers']]
+        self.assertNotIn('my-llm', ids)
+
+    def test_remove_builtin_provider_hides_it(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'hidden_providers': ['azure'],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data['hidden_providers'], ['azure'])
+        visible = [p['id'] for p in data['providers']]
+        self.assertNotIn('azure', visible)
+        # ... but it is still listed in all_providers so it can be restored
+        all_ids = [p['id'] for p in data['all_providers']]
+        self.assertIn('azure', all_ids)
+        self.assertIn(f'{app_module.HIDDEN_PROVIDERS_ENV_KEY}=azure', self._read_env())
+
+    def test_restore_hidden_provider(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'hidden_providers': ['azure'],
+        })
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'hidden_providers': [],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data['hidden_providers'], [])
+        self.assertIn('azure', [p['id'] for p in data['providers']])
+        self.assertNotIn('azure', self._read_env())
+
+    def test_hidden_provider_persisted_to_env(self):
+        self._write_env(f'{app_module.HIDDEN_PROVIDERS_ENV_KEY}=azure,gemini')
+        self.assertEqual(app_module.get_hidden_providers(), ['azure', 'gemini'])
+        catalog = app_module.build_provider_catalog()
+        self.assertNotIn('azure', [p['id'] for p in catalog])
+        full = app_module.build_provider_catalog(include_hidden=True)
+        hidden = {p['id'] for p in full if p.get('hidden')}
+        self.assertEqual(hidden, {'azure', 'gemini'})
+
+    def test_cannot_hide_custom_provider(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'my-llm', 'label': 'My LLM', 'base_url': 'https://api.myllm.com/v1'},
+            ],
+            'hidden_providers': ['my-llm'],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        # Custom providers are deleted rather than hidden
+        self.assertEqual(data['hidden_providers'], [])
+        self.assertEqual([c['id'] for c in data['custom_providers']], ['my-llm'])
+
+    def test_default_provider_falls_back_when_hidden(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'azure',
+            'hidden_providers': ['azure'],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertNotEqual(data['default_provider'], 'azure')
+        self.assertIn(data['default_provider'], [p['id'] for p in data['providers']])
+
+    def test_hidden_provider_absent_from_lister_select(self):
+        self._write_env(f'{app_module.HIDDEN_PROVIDERS_ENV_KEY}=azure')
+        html = self.client.get('/').get_data(as_text=True)
+        select = html.split('<select id="provider">')[1].split('</select>')[0]
+        self.assertNotIn('value="azure"', select)
+
+
+class ProviderEditTests(unittest.TestCase):
+    """Editing a saved provider's label and base URL."""
+
+    def setUp(self):
+        self.client = app.test_client()
+        self.temp_dir = tempfile.mkdtemp()
+        self.env_file = os.path.join(self.temp_dir, '.env')
+        self.orig_base = app_module.DEFAULT_BASE_URL
+        self.orig_prov = app_module.DEFAULT_PROVIDER
+        self.orig_env = {k: os.environ.get(k) for k in (
+            'DEFAULT_BASE_URL', 'DEFAULT_PROVIDER',
+            app_module.CUSTOM_PROVIDERS_ENV_KEY, app_module.PROVIDER_ORDER_ENV_KEY,
+            app_module.HIDDEN_PROVIDERS_ENV_KEY, app_module.PROVIDER_OVERRIDES_ENV_KEY)}
+        self._patch = mock.patch.object(app_module, 'APP_DIR', self.temp_dir)
+        self._patch.start()
+        with open(self.env_file, 'w', encoding='utf-8') as f:
+            f.write('DEFAULT_BASE_URL=https://api.openai.com/v1\n')
+            f.write('DEFAULT_PROVIDER=openai\n')
+
+    def tearDown(self):
+        self._patch.stop()
+        for k, v in self.orig_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        app_module.DEFAULT_BASE_URL = self.orig_base
+        app_module.DEFAULT_PROVIDER = self.orig_prov
+        app_module.PROVIDER_BASE_URLS['openai'] = self.orig_base
+        app_module._ENV_FILE_CACHE.update({'path': None, 'mtime': None, 'values': {}})
+        shutil.rmtree(self.temp_dir)
+
+    def _read_env(self):
+        with open(self.env_file, 'r', encoding='utf-8') as f:
+            return f.read()
+
+    def test_edit_builtin_provider_label_and_base_url(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {
+                'claude': {'label': 'Claude (EU)', 'base_url': 'https://eu.anthropic.com/v1'},
+            },
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data['provider_overrides']['claude']['label'], 'Claude (EU)')
+        self.assertEqual(data['provider_overrides']['claude']['base_url'], 'https://eu.anthropic.com/v1')
+        # Applied to the catalog
+        entry = next(p for p in data['providers'] if p['id'] == 'claude')
+        self.assertEqual(entry['label'], 'Claude (EU)')
+        self.assertEqual(entry['base_url'], 'https://eu.anthropic.com/v1')
+        # And persisted
+        self.assertIn('PROVIDER_OVERRIDES=', self._read_env())
+        self.assertIn('Claude (EU)', self._read_env())
+
+    def test_edited_base_url_used_for_requests(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {
+                'ollama': {'base_url': 'http://192.168.1.10:11434/v1'},
+            },
+        })
+        self.assertEqual(app_module.get_base_url('ollama', ''), 'http://192.168.1.10:11434/v1')
+
+    def test_edited_label_shown_in_lister(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {'claude': {'label': 'Claude EU'}},
+        })
+        html = self.client.get('/').get_data(as_text=True)
+        self.assertIn('Claude EU', html)
+
+    def test_edited_label_shown_in_comparer(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {'claude': {'label': 'Claude EU'}},
+        })
+        html = self.client.get('/').get_data(as_text=True)
+        # The comparer dropdown is populated from the injected catalog
+        self.assertIn('"label": "Claude EU"', html)
+
+    def test_openai_base_url_stays_default_base_url(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {
+                'openai': {'label': 'My OpenAI', 'base_url': 'https://ignored.example.com/v1'},
+            },
+        })
+        data = resp.get_json()
+        # The base URL override is ignored — DEFAULT_BASE_URL is the source of truth
+        self.assertNotIn('base_url', data['provider_overrides'].get('openai', {}))
+        self.assertEqual(data['provider_overrides']['openai']['label'], 'My OpenAI')
+        entry = next(p for p in data['providers'] if p['id'] == 'openai')
+        self.assertEqual(entry['base_url'], 'https://api.openai.com/v1')
+
+    def test_override_equal_to_default_is_dropped(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {
+                'claude': {'label': 'Anthropic Claude', 'base_url': 'https://api.anthropic.com/v1'},
+            },
+        })
+        self.assertEqual(resp.get_json()['provider_overrides'], {})
+
+    def test_invalid_override_base_url_dropped(self):
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {'claude': {'base_url': 'not-a-url'}},
+        })
+        self.assertEqual(resp.get_json()['provider_overrides'], {})
+
+    def test_overrides_persisted_and_reloaded(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'provider_overrides': {'ollama': {'label': 'Ollama LAN'}},
+        })
+        self.assertEqual(app_module.get_provider_overrides(),
+                         {'ollama': {'label': 'Ollama LAN'}})
+        again = self.client.get('/api/settings').get_json()
+        self.assertEqual(again['provider_overrides'], {'ollama': {'label': 'Ollama LAN'}})
+
+    def test_custom_provider_can_be_edited(self):
+        self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'my-llm', 'label': 'My LLM', 'base_url': 'https://api.myllm.com/v1'},
+            ],
+        })
+        # Editing a custom provider updates its own entry
+        resp = self.client.post('/api/settings', json={
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_provider': 'openai',
+            'custom_providers': [
+                {'id': 'my-llm', 'label': 'Renamed', 'base_url': 'https://new.myllm.com/v1'},
+            ],
+        })
+        data = resp.get_json()
+        self.assertEqual(data['custom_providers'][0]['label'], 'Renamed')
+        self.assertEqual(data['custom_providers'][0]['base_url'], 'https://new.myllm.com/v1')
+        entry = next(p for p in data['providers'] if p['id'] == 'my-llm')
+        self.assertEqual(entry['label'], 'Renamed')
+        self.assertEqual(entry['base_url'], 'https://new.myllm.com/v1')
+
+
 class VersionTests(unittest.TestCase):
     def test_clean_version(self):
         self.assertEqual(app_module._clean_version('3.5.7\n'), '3.5.7')
