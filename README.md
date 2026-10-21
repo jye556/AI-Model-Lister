@@ -44,7 +44,6 @@ List models per provider, run batch tests with live token streaming, measure lat
 ### Comparison & export
 - Search/filter, sortable results, side-by-side comparison of selected models
 - **Two-provider availability comparison** — shared, only-A, only-B by exact model ID
-- **Free models by default** — the comparison starts filtered to free models; untick **🆓 Free only** to show every model
 - **Markdown / CSV / JSON export** of test results (includes benchmark tables, token counts, and cost)
 
 ### UX

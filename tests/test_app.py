@@ -1125,9 +1125,10 @@ class ListerComparerUiTests(unittest.TestCase):
         # Unrelated prompt-library templates that mention "Strict" are kept
         self.assertIn('Strict Code Reviewer', html)
 
-    def test_comparer_free_filter_enabled_by_default(self):
+    def test_comparer_free_filter_unticked_by_default(self):
         html = self.client.get('/').get_data(as_text=True)
-        self.assertIn('id="compare-filter-free" onchange="filterCompareModels()" checked', html)
+        self.assertIn('id="compare-filter-free" onchange="filterCompareModels()">', html)
+        self.assertNotIn('id="compare-filter-free" onchange="filterCompareModels()" checked', html)
 
     def test_lister_reset_hook_present(self):
         html = self.client.get('/').get_data(as_text=True)
